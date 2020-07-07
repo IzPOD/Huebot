@@ -17,7 +17,7 @@ bot.on('ready', () => {
 		});
 	});
 	
-	bot.user.setActivity(`this won't appear in the bot's custom status!`, {type: 4});
+	
 });
 
 bot.on('userUpdate', (oldUser, newUser) => {
