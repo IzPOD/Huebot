@@ -1,7 +1,6 @@
 const Discord = require('discord.js');
 const bot = new Discord.Client();
-//const token = process.env.TOKEN;
-token = "NzMwMDE0ODc2OTgyMDUwODc2.XwSP5w.kWLXOt2la8CSQb4B5DErg_BcBNI";
+const token = process.env.TOKEN;
 
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
 var logChannel;
