@@ -11,11 +11,14 @@ var globalChannel;
 var chosen = new Map();
 
 bot.on('ready', () => {
-	console.log('bot online');
-	bot.guilds.cache.forEach(server => {
+console.log('bot online');
+bot.guilds.cache.forEach(server => {
 		server.channels.cache.forEach(channel => {
 			if(channel.name == "музыка") {
-				channel.send('онлайн');
+				channel.send('онлайн').then(sentMessage => sentMessage.delete({ timeout: 2000 }))
+                                                    .catch(error => {
+                                                        // handle error
+                                                    });
 				logChannel = channel;
 			}
 			if(channel.name == "основной-чат") {
@@ -40,9 +43,12 @@ bot.on('message', msg => {
         if((typeof chosenOne !== 'undefined')) {
             chosen.set(chosenOne.id, chosenOne);
             //const emoji = msg.guild.emojis.cache.get("id");
-            logChannel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
+            msg.channel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
         } else {
-            logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй sir");
+            msg.channel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй sir").then(sentMessage => sentMessage.delete({ timeout: 10000 }))
+                                                    .catch(error => {
+                                                        // handle error
+                                                    });
         }
         //}
         msg.delete();
@@ -50,10 +56,10 @@ bot.on('message', msg => {
     } else if (msg.content == "сир" || msg.content == "sir") {
         chosen.clear();
 
-        logChannel.send("расчет обнулен").then(sentMessage => sentMessage.delete({ timeout: 10000 }))
+        msg.channel.send("расчет обнулен").then(sentMessage => sentMessage.delete({ timeout: 10000 }))
                                          			.catch(error => {
                                          				// handle error
-                                         			});;
+                                         			});
         msg.delete();
     }
 });
@@ -86,20 +92,16 @@ bot.on('message', msg=>{
 });
 
 
-
-bot.on ('message', msg=>{
-	if(msg.content == "онлайн" && msg.author.bot == true) {
-        msg.delete({timeout: 2000});
-	}
-})
-
 bot.on('message', msg=> {
     var splitted = msg.content.split(' ');
     if(splitted.length > 0) {
         if((splitted[0] == ("roll")) || (splitted[0] == ("ролл"))) {
             if(splitted.length > 1) {
                 if(splitted[1] < 2 || typeof splitted[1] == 'number') {
-                    msg.reply("ты ебобо? цифру нормально укажи и зайди заново!");
+                    msg.reply("ты ебобо? цифру нормально укажи и зайди заново!").then(sentMessage => sentMessage.delete({ timeout: 30000 }))
+                                                    .catch(error => {
+                                                        // handle error
+                                                    });
                 } else {
                     var number = Math.floor(Math.random() * splitted[1] + 1);
                     var response = '' + number;
@@ -108,10 +110,16 @@ bot.on('message', msg=> {
                     } else if (number == splitted[1]) {
                         response += ' (Critical damage)';
                     }
-                    msg.reply(response + "    (roll 1-" + splitted[1] + ")");
+                    msg.reply(response + "    (roll 1-" + splitted[1] + ")").then(sentMessage => sentMessage.delete({ timeout: 30000 }))
+                                                    .catch(error => {
+                                                        // handle error
+                                                    });
                 }
             } else {
-                msg.reply("ты ебобо? цифру укажи!");
+                msg.reply("ты ебобо? цифру укажи!").then(sentMessage => sentMessage.delete({ timeout: 30000 }))
+                                                    .catch(error => {
+                                                        // handle error
+                                                    });
             }
             msg.delete({timeout: '0'});
         }
