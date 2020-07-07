@@ -4,20 +4,22 @@ const token = process.env.TOKEN;
 
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
 var logChannel;
+var globalChannel;
 
 bot.on('ready', () => {
 	console.log('bot online');
 	bot.guilds.cache.forEach(server => {
 		server.channels.cache.forEach(channel => {
-			if(channel.name == "лог") {
+			if(channel.name == "музыка") {
 				channel.send('онлайн');
 				logChannel = channel;
 			}
+			if(channel.name == "основной-чат") {
+            	globalChannel = channel;
+            }
 			//channel.send('� �����');
 		});
 	});
-	
-	
 });
 
 bot.on('userUpdate', (oldUser, newUser) => {
@@ -36,14 +38,14 @@ bot.on('message', msg=>{
 	}
 });
 
-// bot.on("guildMemberAdd", member => {
-//     member.send(exampleEmbed)
-//         .catch(console.error);
-// });
+bot.on("guildMemberAdd", member => {
+    globalChannel.send('<@' + member.id + '>', exampleEmbed, 'where is image?').catch(console.error);
+});
 
 bot.on('message', msg=>{
 	if(msg.content == "embed") {
-    msg.channel.send(exampleEmbed);
+	    logChannel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
+        logChannel.send(exampleEmbed);
 	}
 });
 
