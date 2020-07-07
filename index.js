@@ -42,16 +42,16 @@ bot.on('message', msg => {
             //const emoji = msg.guild.emojis.cache.get("id");
             logChannel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
         } else {
-
             logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй sir");
         }
         //}
-
+        msg.delete();
 
     } else if (msg.content == "сир" || msg.content == "sir") {
         chosen.clear();
 
         logChannel.send("расчет обнулен");
+        msg.delete();
     }
 });
 
@@ -60,14 +60,14 @@ bot.on('userUpdate', (oldUser, newUser) => {
 });
 
 bot.on('message', msg=>{
-	if(msg.content == "HELLO"){
-		msg.reply('suck some dick,  ' + msg.author.username);
+	if(msg.content == "HELLO") {
+		msg.reply('suck some dick');
 	}
 });
 
 bot.on('message', msg=>{
-	if(msg.content == "Хай" || msg.content == "хай"){
-    msg.channel.send(msg.author.username + ' на хуй свой начихай');
+	if(msg.content == "Хай" || msg.content == "хай") {
+        msg.channel.send(msg.author.username + ' на хуй свой начихай');
 	}
 });
 
@@ -78,7 +78,7 @@ bot.on("guildMemberAdd", member => {
 bot.on('message', msg=>{
 	if(msg.content == "embed") {
 	    logChannel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
-        logChannel.send(exampleEmbed);
+        ///logChannel.send(exampleEmbed);
 	}
 });
 
@@ -86,24 +86,33 @@ bot.on('message', msg=>{
 
 bot.on ('message', msg=>{
 	if(msg.content == "онлайн" && msg.author.bot == true) {
-    msg.delete({timeout: 2000});
+        msg.delete({timeout: 2000});
 	}
 })
 
 bot.on('message', msg=> {
-  var splitted = msg.content.split(' ');
-  if(splitted.length > 1) {
-    if((splitted[0] == ("roll")) || (splitted[0] == ("ролл"))) {
-      var number = Math.floor(Math.random() * splitted[1] + 1);
-      var response = '' + number;
-      if(number == 1) {
-        response += ' (критическая неудача)';
-      } else if (number == splitted[1]) {
-        response += ' (Critical damage)';
-      }
-       msg.reply(response);
+    var splitted = msg.content.split(' ');
+    if(splitted.length > 0) {
+        if((splitted[0] == ("roll")) || (splitted[0] == ("ролл"))) {
+            if(splitted.length > 1) {
+                if(splitted[1] < 2 || typeof splitted[1] == 'number') {
+                    msg.reply("ты ебобо? цифру нормально укажи и зайди заново!");
+                } else {
+                    var number = Math.floor(Math.random() * splitted[1] + 1);
+                    var response = '' + number;
+                    if(number == 1) {
+                        response += ' (критическая неудача)';
+                    } else if (number == splitted[1]) {
+                        response += ' (Critical damage)';
+                    }
+                    msg.reply(response + "(roll 1-" + splitted[1] + ")");
+                }
+            } else {
+                msg.reply("ты ебобо? цифру укажи!");
+            }
+            msg.delete({timeout: '0'});
+        }
     }
-  }
 });
 
 bot.login(token);
