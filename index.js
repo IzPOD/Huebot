@@ -79,6 +79,14 @@ bot.on('message', msg=>{
 	}
 });
 
+
+
+bot.on ('message', msg=>{
+	if(msg.content == "онлайн" && msg.author.bot == true) {
+    msg.delete({timeout: 2000});
+	}
+})
+
 bot.on('message', msg=> {
   var splitted = msg.content.split(' ');
   if(splitted.length > 1) {
