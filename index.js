@@ -28,7 +28,7 @@ bot.on('ready', () => {
 });
 
 bot.on('message', msg => {
-    if(msg.content == "!strawpoll") {
+    if(msg.content == "си" || msg.content == "si") {
         let guildMember = msg.guild.member(msg.author);
         let chosenOne;
         //if((typeof chosen == 'undefined') || (chosen.array().length == 0)) {
@@ -43,15 +43,15 @@ bot.on('message', msg => {
             logChannel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
         } else {
 
-            logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй !reset");
+            logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй sir");
         }
         //}
 
 
-    } else if (msg.content == "!reset") {
+    } else if (msg.content == "сир" || msg.content == "sir") {
         chosen.clear();
 
-        logChannel.send("strawpoll reseted");
+        logChannel.send("расчет обнулен");
     }
 });
 
