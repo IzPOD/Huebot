@@ -45,12 +45,13 @@ bot.on('message', msg => {
             logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй sir");
         }
         //}
-
+        msg.delete();
 
     } else if (msg.content == "сир" || msg.content == "sir") {
         chosen.clear();
 
         logChannel.send("расчет обнулен");
+        msg.delete();
     }
 });
 
@@ -85,7 +86,7 @@ bot.on('message', msg=>{
 
 bot.on ('message', msg=>{
 	if(msg.content == "онлайн" && msg.author.bot == true) {
-    msg.delete({timeout: 2000});
+        msg.delete({timeout: 2000});
 	}
 })
 
@@ -104,7 +105,7 @@ bot.on('message', msg=> {
                     } else if (number == splitted[1]) {
                         response += ' (Critical damage)';
                     }
-                    msg.reply(response);
+                    msg.reply(response + "(roll 1-" + splitted[1] + ")");
                 }
             } else {
                 msg.reply("ты ебобо? цифру укажи!");
