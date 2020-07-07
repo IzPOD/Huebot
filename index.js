@@ -9,11 +9,11 @@ bot.on('ready', () => {
 	console.log('bot online');
 	bot.guilds.cache.forEach(server => {
 		server.channels.cache.forEach(channel => {
-			if(channel.name == "лог") {
-				channel.send('я онлайн');
+			if(channel.name == "Р»РѕРі") {
+				channel.send('РѕРЅР»Р°Р№РЅ');
 				logChannel = channel;
 			}
-			//channel.send('я живой');
+			//channel.send('пїЅ пїЅпїЅпїЅпїЅпїЅ');
 		});
 	});
 	
@@ -26,13 +26,13 @@ bot.on('userUpdate', (oldUser, newUser) => {
 
 bot.on('message', msg=>{
 	if(msg.content == "HELLO"){
-		msg.reply('SOSI HUI ' + msg.author.username);
+		msg.reply('suck some dick,  ' + msg.author.username);
 	}
 });
 
 bot.on('message', msg=>{
-	if(msg.content == "Хай" || msg.content == "хай"){
-    msg.channel.send(msg.author.username + ' соси хуй');
+	if(msg.content == "РҐР°Р№" || msg.content == "С…Р°Р№"){
+    msg.channel.send(msg.author.username + ' РЅР° С…СѓР№ СЃРІРѕР№ РЅР°С‡РёС…Р°Р№');
 	}
 });
 
@@ -50,11 +50,11 @@ bot.on('message', msg=>{
 bot.on('message', msg=> {
   var splitted = msg.content.split(' ');
   if(splitted.length > 1) {
-    if((splitted[0] == ("roll")) || (splitted[0] == ("ролл"))) {
+    if((splitted[0] == ("roll")) || (splitted[0] == ("СЂРѕР»Р»"))) {
       var number = Math.floor(Math.random() * splitted[1] + 1);
       var response = '' + number;
       if(number == 1) {
-        response += ' (Критическая неудача)';
+        response += ' (РєСЂРёС‚РёС‡РµСЃРєР°СЏ РЅРµСѓРґР°С‡Р°)';
       } else if (number == splitted[1]) {
         response += ' (Critical damage)';
       }
