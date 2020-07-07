@@ -43,7 +43,7 @@ bot.on('message', msg => {
             logChannel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
         } else {
 
-            logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй !reset");
+            logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй sir");
         }
         //}
 
@@ -51,7 +51,7 @@ bot.on('message', msg => {
     } else if (msg.content == "сир" || msg.content == "sir") {
         chosen.clear();
 
-        logChannel.send("strawpoll reseted");
+        logChannel.send("расчет обнулен");
     }
 });
 
