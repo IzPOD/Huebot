@@ -50,7 +50,10 @@ bot.on('message', msg => {
     } else if (msg.content == "сир" || msg.content == "sir") {
         chosen.clear();
 
-        logChannel.send("расчет обнулен");
+        logChannel.send("расчет обнулен").then(sentMessage => sentMessage.delete({ timeout: 10000 }))
+                                         			.catch(error => {
+                                         				// handle error
+                                         			});;
         msg.delete();
     }
 });
@@ -105,7 +108,7 @@ bot.on('message', msg=> {
                     } else if (number == splitted[1]) {
                         response += ' (Critical damage)';
                     }
-                    msg.reply(response + "(roll 1-" + splitted[1] + ")");
+                    msg.reply(response + "    (roll 1-" + splitted[1] + ")");
                 }
             } else {
                 msg.reply("ты ебобо? цифру укажи!");
