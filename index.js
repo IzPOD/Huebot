@@ -40,6 +40,8 @@ bot.on('message', msg => {
 			break;
 		case 'Хай':
 		case 'хай':
+		case 'hi':
+		case 'Hi':
 			msg.channel.send(msg.author.username + ' на хуй свой начихай');
 			break;
 		case 'си':
