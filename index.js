@@ -36,10 +36,10 @@ bot.on('message', msg=>{
 	}
 });
 
-bot.on("guildMemberAdd", member => {
-    member.send(exampleEmbed)
-        .catch(console.error);
-});
+// bot.on("guildMemberAdd", member => {
+//     member.send(exampleEmbed)
+//         .catch(console.error);
+// });
 
 bot.on('message', msg=>{
 	if(msg.content == "embed") {
