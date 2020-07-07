@@ -9,7 +9,7 @@ bot.on('ready', () => {
 	console.log('bot online');
 	bot.guilds.cache.forEach(server => {
 		server.channels.cache.forEach(channel => {
-			if(channel.name == "лог") {
+			if(channel.name == "музыка") {
 				channel.send('онлайн');
 				logChannel = channel;
 			}
