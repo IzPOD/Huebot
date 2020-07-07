@@ -5,6 +5,7 @@ const token = process.env.TOKEN;
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
 var logChannel;
 var globalChannel;
+var chosen = new Map();
 
 bot.on('ready', () => {
 	console.log('bot online');
@@ -17,9 +18,38 @@ bot.on('ready', () => {
 			if(channel.name == "основной-чат") {
             	globalChannel = channel;
             }
+
 			//channel.send('� �����');
 		});
 	});
+});
+
+bot.on('message', msg => {
+    if(msg.content == "!strawpoll") {
+        let guildMember = msg.guild.member(msg.author);
+        let chosenOne;
+        //if((typeof chosen == 'undefined') || (chosen.array().length == 0)) {
+        //    chosenOne = guildMember.voice.channel.members.random();
+        //    //guildMember.voice.channel.members.clone().clear().set(guildMember.id, chosenOne);
+        //    chosen.set(guildMember.id, chosenOne);
+        //} else {
+        chosenOne = guildMember.voice.channel.members.filter(gMember => !chosen.has(gMember.id)).random();
+        if((typeof chosenOne !== 'undefined')) {
+            chosen.set(chosenOne.id, chosenOne);
+            //const emoji = msg.guild.emojis.cache.get("id");
+            logChannel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
+        } else {
+
+            logChannel.send("расчет мудаков в канале \""+ guildMember.voice.channel.name + "\" окончен, используй !reset");
+        }
+        //}
+
+
+    } else if (msg.content == "!reset") {
+        chosen.clear();
+
+        logChannel.send("strawpoll reseted");
+    }
 });
 
 bot.on('userUpdate', (oldUser, newUser) => {
