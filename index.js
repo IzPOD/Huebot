@@ -35,6 +35,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         var splitted = msg.content.toLowerCase().split(' ');
         switch (splitted[0]) {
             case '!help':
+            case 'help':
                 helpMessage(splitted, msg);
                 break;
             case '!hello':
