@@ -1,6 +1,9 @@
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 
+
+const fs = require('fs');
+const readline = require('readline');
 const dotenv = require('dotenv');
 dotenv.config();
 const token = process.env.TOKEN;
@@ -124,7 +127,41 @@ bot.on('message', msg => {
 			}
 			break;
 	}
-})
+});
+
+bot.on('message', msg=>{
+	if(msg.content == "АУФ") {
+	    if(msg.guild.member(msg.author).voice.channel != null) {
+            const rl = readline.createInterface({
+              input: fs.createReadStream('auf')
+            });
+            let aufFileLines = new Array();
+            rl.on('line', (line) => {
+                console.log(`Line from file: ${line}`);
+                aufFileLines.push(line);
+                //logChannel.send('<@' + msg.author.id + '> ' + line).catch(console.error);
+            });
+
+            rl.on('close', () => {
+                const broadcast = bot.voice.createBroadcast();
+                // Play audio on the broadcast
+                const dispatcher = broadcast.play('auf.mp3');
+                dispatcher.setVolume(0.01);
+                logChannel.send('<@' + msg.author.id + '> ' + aufFileLines[Math.floor(Math.random() * aufFileLines.length)] + " АУФ").catch(console.error);
+                        //logChannel.send('<@' + msg.author.id + '> ' + line).catch(console.error);
+                        var voiceChannel = msg.guild.member(msg.author).voice.channel;
+                voiceChannel.join().then(connection => connection.play(broadcast))
+
+                dispatcher.on("end", end => {
+                    console.log("left channel");
+                    voiceChannel.leave();
+                });
+            });
+        } else {
+            msg.channel.send("в канал зайди дебил!");
+        }
+	}
+});
 
 bot.on('userUpdate', (oldUser, newUser) => {
 	logChannel.send(newUser);
