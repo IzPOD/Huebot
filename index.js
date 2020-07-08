@@ -9,7 +9,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
     var logChannel;
     var globalChannel;
-    var chosen = new Map();
+    var chosenChannels = new Map();
 
     bot.on('ready', () => {
         console.log('bot online');
@@ -87,24 +87,34 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     }
 
     function resetStrawpoll(splitted, msg) {
-        chosen.clear();
-        msg.channel.send("расчет обнулен").then(sentMessage => sentMessage.delete({timeout: 10000}))
+        let guildMember = msg.guild.member(msg.author);
+        let channel = guildMember.voice.channel;
+        if(chosenChannels.has(channel.id)) {
+            chosenChannels.get(channel.id).clear();
+        } else {
+            chosenChannels.set(channel.id, new Map());
+        };
+        msg.channel.send("расчет в канале " + guildMember.voice.channel.name + " обнулен").then(sentMessage => sentMessage.delete({timeout: 10000}))
            .catch(error => {console.error});
         msg.delete();
     }
 
     function strawpoll(splitted, msg) {
         let guildMember = msg.guild.member(msg.author);
+        let channel = guildMember.voice.channel;
         let chosenOne;
-        chosenOne = guildMember.voice.channel.members.filter(gMember => !chosen.has(gMember.id)).random();
+        if(!chosenChannels.has(channel.id)) {
+            chosenChannels.set(channel.id, new Map());
+        }
+        chosenOne = guildMember.voice.channel.members.filter(gMember => !chosenChannels.get(channel.id).has(gMember.id)).random();
         if ((typeof chosenOne !== 'undefined')) {
-            chosen.set(chosenOne.id, chosenOne);
+            chosenChannels.get(channel.id).set(chosenOne.id, chosenOne);
             msg.channel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
         } else {
             msg.channel.send("расчет мудаков в канале \"" + guildMember.voice.channel.name + "\" окончен, используй sir").then(sentMessage => sentMessage.delete({
                 timeout: 10000
             })).catch(error => {
-                // handle error
+                console.error;
             });
         }
         msg.delete();
