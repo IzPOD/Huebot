@@ -7,9 +7,20 @@ dotenv.config();
 const token = process.env.TOKEN;
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
 
-    var logChannel;
-    var globalChannel;
+    var unlocked = false;
+    var logChannels = new Map();
+    var globalChannels = new Map();
     var chosenChannels = new Map();
+
+    const rl = readline.createInterface({
+        input: fs.createReadStream('auf')
+    });
+    var aufFileLines = new Array();
+        rl.on('line', (line) => {
+        aufFileLines.push(line);
+    });
+
+    rl.on('close', () => {unlocked = true});
 
     bot.on('ready', () => {
         console.log('bot online');
@@ -22,10 +33,10 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                         .catch(error => {
                             // handle error
                         });
-                    logChannel = channel;
+                     logChannels.set(server.id, channel);
                 }
                 if (channel.name == "основной-чат") {
-                    globalChannel = channel;
+                    globalChannels.set(server.id, channel);
                 }
             });
         });
@@ -71,11 +82,10 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     });
 
     bot.on('userUpdate', (oldUser, newUser) => {
-        logChannel.send(newUser);
     });
 
     bot.on("guildMemberAdd", member => {
-        globalChannel.send('<@' + member.id + '>', exampleEmbed).catch(console.error);
+        globalChannels.get(msg.guild.id).send('<@' + member.id + '>', exampleEmbed).catch(console.error);
     });
 
     function helpMessage(splitted, msg) {
@@ -103,20 +113,24 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function strawpoll(splitted, msg) {
         let guildMember = msg.guild.member(msg.author);
         let channel = guildMember.voice.channel;
-        let chosenOne;
-        if(!chosenChannels.has(channel.id)) {
-            chosenChannels.set(channel.id, new Map());
-        }
-        chosenOne = guildMember.voice.channel.members.filter(gMember => !chosenChannels.get(channel.id).has(gMember.id)).random();
-        if ((typeof chosenOne !== 'undefined')) {
-            chosenChannels.get(channel.id).set(chosenOne.id, chosenOne);
-            msg.channel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
+        if(channel != null) {
+            let chosenOne;
+            if(!chosenChannels.has(channel.id)) {
+                chosenChannels.set(channel.id, new Map());
+            }
+            chosenOne = guildMember.voice.channel.members.filter(gMember => !chosenChannels.get(channel.id).has(gMember.id)).random();
+            if ((typeof chosenOne !== 'undefined')) {
+                chosenChannels.get(channel.id).set(chosenOne.id, chosenOne);
+                msg.channel.send("ha-ha look at this duuuude :point_right: " + chosenOne.displayName + " :point_left:");
+            } else {
+                msg.channel.send("расчет мудаков в канале \"" + guildMember.voice.channel.name + "\" окончен, используй sir").then(sentMessage => sentMessage.delete({
+                    timeout: 10000
+                })).catch(error => {
+                    console.error;
+                });
+            }
         } else {
-            msg.channel.send("расчет мудаков в канале \"" + guildMember.voice.channel.name + "\" окончен, используй sir").then(sentMessage => sentMessage.delete({
-                timeout: 10000
-            })).catch(error => {
-                console.error;
-            });
+            msg.channel.send("в канал зайди, дебил!");
         }
         msg.delete();
     }
@@ -168,36 +182,28 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
     function auf(splitted, msg) {
         if(msg.guild.member(msg.author).voice.channel != null) {
-            const rl = readline.createInterface({
-              input: fs.createReadStream('auf')
-            });
-            let aufFileLines = new Array();
-            rl.on('line', (line) => {
-                aufFileLines.push(line);
-            });
-
-            rl.on('close', () => {
-                const broadcast = bot.voice.createBroadcast();
-                const dispatcher = broadcast.play('auf.mp3');
+            if(unlocked) {
+                let broadcast = bot.voice.createBroadcast();
+                let dispatcher = broadcast.play('auf.mp3');
                 dispatcher.setVolume(0.01);
-                logChannel.send('<@' + msg.author.id + '> ' + aufFileLines[Math.floor(Math.random() * aufFileLines.length)] + " АУФ :point_up:")
-                .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
-                        var voiceChannel = msg.guild.member(msg.author).voice.channel;
+                msg.channel.send('<@' + msg.author.id + '> ' + aufFileLines[Math.floor(Math.random() * aufFileLines.length)] + " АУФ :point_up:")
+                    .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
+                let voiceChannel = msg.guild.member(msg.author).voice.channel;
                 voiceChannel.join().then(connection => connection.play(broadcast))
 
-                dispatcher.on("end", end => {
+                dispatcher.on('finish', () => {
                     console.log("left channel");
                     voiceChannel.leave();
                 });
-            });
+            }
         } else {
-            msg.channel.send("в канал зайди дебил!");
+            msg.channel.send("в канал зайди, дебил!");
         }
         msg.delete();
     };
 
     function test(splitted, msg) {
-        logChannel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
+        logChannels.get(msg.guild.id).send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
     };
 
     bot.login(token);
