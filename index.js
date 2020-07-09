@@ -1,9 +1,12 @@
+"use strict"
 const Discord = require('discord.js');
+const ytdl = require('ytdl-core');
 const bot = new Discord.Client();
 const fs = require('fs');
 const readline = require('readline');
 const dotenv = require('dotenv');
 dotenv.config();
+
 const token = process.env.TOKEN;
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
 
@@ -27,13 +30,13 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         bot.guilds.cache.forEach(server => {
             server.channels.cache.forEach(channel => {
                 if (channel.name == "музыка") {
-                    channel.send('онлайн').then(sentMessage => sentMessage.delete({
-                            timeout: 2000
-                        }))
-                        .catch(error => {
-                            // handle error
-                        });
-                     logChannels.set(server.id, channel);
+                    //channel.send('онлайн').then(sentMessage => sentMessage.delete({
+                    //        timeout: 2000
+                    //    }))
+                    //    .catch(error => {
+                    //        // handle error
+                    //    });
+                    logChannels.set(server.id, channel);
                 }
                 if (channel.name == "основной-чат") {
                     globalChannels.set(server.id, channel);
@@ -43,8 +46,8 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     });
 
     bot.on('message', msg => {
-        var splitted = msg.content.toLowerCase().split(' ');
-        switch (splitted[0]) {
+        var splitted = msg.content.split(' ');
+        switch (splitted[0].toLowerCase()) {
             case '!help':
             case 'help':
                 helpMessage(splitted, msg);
@@ -76,9 +79,22 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             case '!test':
                 test(splitted, msg);
                 break;
+            case 'play':
+                playSong(splitted, msg);
+                break;
+            case 'q':
+                queueSong(splitted, msg);
+                break;
+            case 'skip':
+                skipSong(splitted, msg);
+                break;
+            case 'volume':
+                setVolume(splitted, msg);
+                break;
+            case 'stop':
+                stopSong(splitted, msg);
+                break;
         }
-
-
     });
 
     bot.on('userUpdate', (oldUser, newUser) => {
@@ -202,8 +218,107 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         msg.delete();
     };
 
+    var guildsBroadcasts = new Map();
+    var guildsQueues = new Map();
+    var guildsVolumes = new Map();
+
+    function playSong(splitted, msg) {
+        if(msg.guild.member(msg.author).voice.channel != null) {
+            construct(msg);
+            if(splitted.length > 1) {
+                guildsQueues.get(msg.guild.id).unshift(splitted[1]);
+                nextSong(msg);
+            } else {
+                nextSong(msg);
+            }
+         } else {
+             msg.channel.send("в канал зайди, дебил!");
+         }
+         msg.delete();
+    };
+
+    function play() {
+
+    }
+
+    function nextSong(msg) {
+        let queue = guildsQueues.get(msg.guild.id);
+        if(queue.length > 0) {
+            msg.guild.member(msg.author).voice.channel.join().then(connection => {
+                let broadcast = guildsBroadcasts.get(msg.guild.id);
+                let stream = ytdl(queue.shift());
+                let dispatcher = broadcast.play(stream);
+                dispatcher.setVolume(guildsVolumes.get(msg.guild.id));
+                connection.play(broadcast);
+
+                let temp = function () {nextSong(msg)};
+                dispatcher.on('finish', temp);
+
+                stream.on('info', (info) => {
+                    msg.reply("now playing: " + info.videoDetails.title);
+                    //console.log(info.title);     // Tobu - Roots
+                    //console.log(info.video_id);  // H7NuU-dDRLU
+                });
+
+
+                if(queue.length > 0) {
+                    let nextStream = ytdl(queue.shift());
+                    nextStream.on('info', (info) => {
+                        msg.reply("next: " + info.videoDetails.title).then(sentMessage => sentMessage.delete({timeout: 10000}));
+                        if(queue.length > 1) {
+                            msg.reply("and " + (queue.length - 1) + " to go!").then(sentMessage => sentMessage.delete({timeout: 10000}));;
+                        }
+                    });
+                }
+            }).catch(error => msg.reply("не найдено: " + error).then(sentMessage => sentMessage.delete({timeout: 10000})));
+        } else {
+            msg.channel.send("конец очереди").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+    }
+
+    function queueSong(splitted, msg) {
+        if(splitted.length > 1) {
+            construct(msg);
+
+            let queue = guildsQueues.get(msg.guild.id);
+            queue.push(splitted[1]);
+            msg.reply("queued song." + " queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+        msg.delete();
+    }
+
+    function skipSong(splitted, msg) {
+        construct(msg);
+        guildsBroadcasts.get(msg.guild.id).end();
+        nextSong(msg);
+    }
+
     function test(splitted, msg) {
         logChannels.get(msg.guild.id).send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
     };
 
+    function construct(msg) {
+        if (!guildsQueues.has(msg.guild.id)) {
+            guildsQueues.set(msg.guild.id, new Array());
+        }
+        if (!guildsBroadcasts.has(msg.guild.id)) {
+            guildsBroadcasts.set(msg.guild.id, bot.voice.createBroadcast());
+        }
+        if (!guildsVolumes.has(msg.guild.id)) {
+            guildsVolumes.set(msg.guild.id, 0.05);
+        }
+    }
+
+    function setVolume(splitted, msg) {
+        construct(msg);
+        guildsVolumes.set(msg.guild.id, splitted[1]);
+        guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(guildsVolumes.get(msg.guild.id));
+    }
+
+    function stopSong(splitted, msg) {
+        construct(msg);
+        guildsBroadcasts.get(msg.guild.id).end();
+    }
+
     bot.login(token);
+
