@@ -79,19 +79,24 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             case '!test':
                 test(splitted, msg);
                 break;
-            case 'play':
+            case 'музло':
+            case '!play':
                 playSong(splitted, msg);
                 break;
-            case 'q':
+            case 'очередь':
+            case '!q':
                 queueSong(splitted, msg);
                 break;
-            case 'skip':
+            case 'скип':
+            case '!skip':
                 skipSong(splitted, msg);
                 break;
-            case 'volume':
+            case 'звук':
+            case '!volume':
                 setVolume(splitted, msg);
                 break;
-            case 'stop':
+            case 'стоп':
+            case '!stop':
                 stopSong(splitted, msg);
                 break;
         }
@@ -110,7 +115,13 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             "си,    si,     !strawpoll           - выбрать неудачника в голосовом канале \n" +
             "сир,   sir,    !reset               - перезапустить выбор неудачников в канале \n" +
             "ролл,  !roll                        - ролл от 1 до указанной цифры \n" +
-            "ауф,   !auf                         - цитаты великих людей \n");
+            "ауф,   !auf                         - цитаты великих людей \n" +
+            "музло, !play                        - запустить плеер или запустить плеер по YouTube ссылке \n" +
+            "стоп,  !stop                        - остановить плеер\n" +
+            "очередь, !q                         - поставить в очередь по YouTube ссылке\n" +
+            "скип,  !skip                        - скипнуть трек\n" +
+            "звук,  !volume                      - установить громкость от 0 до 1\n");
+        msg.delete();
     }
 
     function resetStrawpoll(splitted, msg) {
@@ -282,7 +293,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
             let queue = guildsQueues.get(msg.guild.id);
             queue.push(splitted[1]);
-            msg.reply("queued song." + " queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
+            msg.reply("queued song. queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
         msg.delete();
     }
@@ -290,7 +301,9 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function skipSong(splitted, msg) {
         construct(msg);
         guildsBroadcasts.get(msg.guild.id).end();
+        msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
         nextSong(msg);
+        msg.delete();
     }
 
     function test(splitted, msg) {
@@ -312,7 +325,12 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function setVolume(splitted, msg) {
         construct(msg);
         guildsVolumes.set(msg.guild.id, splitted[1]);
-        guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(guildsVolumes.get(msg.guild.id));
+        var dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
+        if(dispatcher != null) {
+            guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(guildsVolumes.get(msg.guild.id));
+        }
+        msg.reply("volume for this guild set to " + splitted[1]);
+        msg.delete();
     }
 
     function stopSong(splitted, msg) {
