@@ -101,6 +101,12 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             case '!show':
                 showPlaylist(splitted, msg);
                 break;
+            case '!resume':
+                resumeSong(splitted, msg);
+                break;
+            case '!clear':
+                clearQueue(splitted, msg);
+                break;
         }
     });
 
@@ -120,6 +126,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             "ауф,   !auf                         - цитаты великих людей \n" +
             "музло, !play                        - запустить плеер или запустить плеер по YouTube ссылке \n" +
             "стоп,  !stop                        - остановить плеер\n" +
+            "!resume                             - продолжить остановленный трек\n" +
             "очередь, !q                         - поставить в очередь по YouTube ссылке\n" +
             "скип,  !skip                        - скипнуть трек\n" +
             "звук,  !volume                      - узнать или установить громкость канала от 0 до 100\n" +
@@ -359,9 +366,11 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 if(dispatcher != null) {
                     guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
                 }
-                msg.reply("volume for channel " + channel.name + " set to " + splitted[1] / 100);
+                msg.reply("volume for channel " + channel.name + " set to " + splitted[1] / 100)
+                    .then(sentMessage => sentMessage.delete({timeout: 10000}));
             } else {
-                 msg.reply("volume for this channel is: " + channelsVolumes.get(channel.id) + " specify value to set!");
+                 msg.reply("volume for this channel is: " + channelsVolumes.get(channel.id) + " specify value to set!")
+                    .then(sentMessage => sentMessage.delete({timeout: 10000}));
             }
         } else {
             msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
@@ -371,7 +380,32 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
     function stopSong(splitted, msg) {
         construct(msg);
-        guildsBroadcasts.get(msg.guild.id).end();
+        let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
+        if(dispatcher != null) {
+            dispatcher.pause();
+        }
+        msg.delete();
+    }
+
+    function clearQueue(splitted, msg) {
+         construct(msg);
+         let channel = msg.guild.member(msg.author).voice.channel;
+         if(channel != null) {
+             channelsQueues.set(channel.id, new Array());
+             msg.reply("queue cleared").then(sentMessage => sentMessage.delete({timeout: 10000}));
+         } else {
+             msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
+         }
+         msg.delete();
+     }
+
+    function resumeSong(splitted, msg) {
+        construct(msg);
+        let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
+        if(dispatcher != null) {
+            dispatcher.resume();
+        }
+        msg.delete();
     }
 
     function save(splitted, msg) {
