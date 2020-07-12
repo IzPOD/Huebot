@@ -229,13 +229,13 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     var channelsVolumes = new Map();
 
     function playSong(splitted, msg) {
-        if(msg.guild.member(msg.author).voice.channel != null) {
-            construct(msg);
+        if(construct(msg)) {
+            let channel = msg.guild.member(msg.author).voice.channel;
             if(splitted.length > 1) {
                 guildsQueues.get(msg.guild.id).unshift(splitted[1]);
-                nextSong(msg);
+                nextSong(msg, channel);
             } else {
-                nextSong(msg);
+                nextSong(msg, channel);
             }
          } else {
              msg.channel.send("в канал зайди, дебил!");
@@ -243,11 +243,10 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
          msg.delete();
     };
 
-    function nextSong(msg) {
+    function nextSong(msg, channel) {
         let queue = guildsQueues.get(msg.guild.id);
         if(queue.length > 0) {
-            let channel = msg.guild.member(msg.author).voice.channel;
-            msg.guild.member(msg.author).voice.channel.join().then(connection => {
+            channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
                 let stream = ytdl(queue.shift());
                 let dispatcher = broadcast.play(stream);
@@ -255,7 +254,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 dispatcher.setVolume(channelsVolumes.get(channel.id));
                 connection.play(broadcast);
 
-                let temp = function () {nextSong(msg)};
+                let temp = function () {nextSong(msg, channel)};
                 dispatcher.on('finish', temp);
 
                 stream.on('info', (info) => {
@@ -290,11 +289,13 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     }
 
     function skipSong(splitted, msg) {
-        construct(msg);
-        guildsBroadcasts.get(msg.guild.id).end();
-        msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
-        nextSong(msg);
-        msg.delete();
+        if(construct(msg)) {
+            let channel = msg.guild.member(msg.author).voice.channel;
+            guildsBroadcasts.get(msg.guild.id).end();
+            msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
+            nextSong(msg, channel);
+            msg.delete();
+        }
     }
 
     function construct(msg) {
