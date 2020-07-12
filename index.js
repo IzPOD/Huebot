@@ -225,14 +225,14 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     };
 
     var guildsBroadcasts = new Map();
-    var guildsQueues = new Map();
+    var channelsQueues = new Map();
     var channelsVolumes = new Map();
 
     function playSong(splitted, msg) {
         if(construct(msg)) {
             let channel = msg.guild.member(msg.author).voice.channel;
             if(splitted.length > 1) {
-                guildsQueues.get(msg.guild.id).unshift(splitted[1]);
+                channelsQueues.get(channel.id).unshift(splitted[1]);
                 nextSong(msg, channel);
             } else {
                 nextSong(msg, channel);
@@ -244,7 +244,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     };
 
     function nextSong(msg, channel) {
-        let queue = guildsQueues.get(msg.guild.id);
+        let queue = channelsQueues.get(channel.id);
         if(queue.length > 0) {
             channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
@@ -263,7 +263,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
 
                 if(queue.length > 0) {
-                    let nextStream = ytdl(queue.shift());
+                    let nextStream = ytdl(queue[0]);
                     nextStream.on('info', (info) => {
                         msg.reply("next: " + info.videoDetails.title).then(sentMessage => sentMessage.delete({timeout: 10000}));
                         if(queue.length > 1) {
@@ -278,12 +278,21 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     }
 
     function queueSong(splitted, msg) {
-        if(splitted.length > 1) {
-            construct(msg);
-
-            let queue = guildsQueues.get(msg.guild.id);
-            queue.push(splitted[1]);
-            msg.reply("queued song. queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
+        if(construct(msg)) {
+            let channel = msg.guild.member(msg.author).voice.channel;
+            let queue = channelsQueues.get(channel.id);
+            if(splitted.length > 1) {
+                queue.push(splitted[1]);
+                msg.reply("queued song for " + channel.name + ". queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
+            } else {
+                let reply = "playlist for " + channel.name + " is: \n"
+                queue.forEach(link => {
+                    reply += link + " \n";
+                });
+                msg.reply(reply);
+            }
+        } else {
+            msg.reply("you are not connected to any voice channels");
         }
         msg.delete();
     }
@@ -294,19 +303,22 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             guildsBroadcasts.get(msg.guild.id).end();
             msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
             nextSong(msg, channel);
-            msg.delete();
+        } else {
+            msg.reply("you are not connected to any voice channels");
         }
+        msg.delete();
     }
 
     function construct(msg) {
-        if (!guildsQueues.has(msg.guild.id)) {
-            guildsQueues.set(msg.guild.id, new Array());
-        }
+
         if (!guildsBroadcasts.has(msg.guild.id)) {
             guildsBroadcasts.set(msg.guild.id, bot.voice.createBroadcast());
         }
-        var channel = msg.guild.member(msg.author).voice.channel;
+        let channel = msg.guild.member(msg.author).voice.channel;
         if (channel != null) {
+            if (!channelsQueues.has(channel.id)) {
+                channelsQueues.set(channel.id, new Array());
+            }
             if(!channelsVolumes.has(channel.id)) {
                 channelsVolumes.set(channel.id, 0.05);
             }
