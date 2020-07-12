@@ -122,7 +122,11 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             "стоп,  !stop                        - остановить плеер\n" +
             "очередь, !q                         - поставить в очередь по YouTube ссылке\n" +
             "скип,  !skip                        - скипнуть трек\n" +
-            "звук,  !volume                      - установить громкость от 0 до 1\n");
+            "звук,  !volume                      - узнать или установить громкость канала от 0 до 100\n" +
+            "!save                               - сохранить очередь как плейлист под указанным именем\n" +
+            "!playlist                           - установить в качестве очереди указаный плейлист \n" +
+            "!playlists                          - список плейлистов на сервере\n" +
+            "!show                               - список треков в указанном плейлисте\n");
         msg.delete();
     }
 
@@ -349,14 +353,18 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function setVolume(splitted, msg) {
         if(construct(msg)) {
             let channel = msg.guild.member(msg.author).voice.channel;
-            channelsVolumes.set(channel.id, splitted[1]);
-            let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
-            if(dispatcher != null) {
-                guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
+            if(splitted.length > 1) {
+                channelsVolumes.set(channel.id, splitted[1] / 100);
+                let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
+                if(dispatcher != null) {
+                    guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
+                }
+                msg.reply("volume for channel " + channel.name + " set to " + splitted[1] / 100);
+            } else {
+                 msg.reply("volume for this channel is: " + channelsVolumes.get(channel.id) + " specify value to set!");
             }
-            msg.reply("volume for channel " + channel.name + " set to " + splitted[1]);
         } else {
-            msg.reply("you are not connected to any voice channels")
+            msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
         msg.delete();
     }
