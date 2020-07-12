@@ -89,6 +89,18 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             case '!stop':
                 stopSong(splitted, msg);
                 break;
+            case '!save':
+                save(splitted, msg);
+                break;
+            case '!playlist':
+                playPlaylist(splitted, msg);
+                break;
+            case '!playlists':
+                showPlaylists(splitted, msg);
+                break;
+            case '!show':
+                showPlaylist(splitted, msg);
+                break;
         }
     });
 
@@ -214,7 +226,6 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 voiceChannel.join().then(connection => connection.play(broadcast))
 
                 dispatcher.on('finish', () => {
-                    console.log("left channel");
                     voiceChannel.leave();
                 });
             }
@@ -227,6 +238,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     var guildsBroadcasts = new Map();
     var channelsQueues = new Map();
     var channelsVolumes = new Map();
+    var guildsPlaylists = new Map();
 
     function playSong(splitted, msg) {
         if(construct(msg)) {
@@ -286,13 +298,13 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 msg.reply("queued song for " + channel.name + ". queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
             } else {
                 let reply = "playlist for " + channel.name + " is: \n"
-                queue.forEach(link => {
-                    reply += link + " \n";
+                queue.forEach(function(item, i, arr) {
+                    reply += "" + i + ". " + item + " \n";
                 });
-                msg.reply(reply);
+                msg.reply(reply).then(sentMessage => sentMessage.delete({timeout: 10000}));
             }
         } else {
-            msg.reply("you are not connected to any voice channels");
+            msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
         msg.delete();
     }
@@ -304,7 +316,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
             nextSong(msg, channel);
         } else {
-            msg.reply("you are not connected to any voice channels");
+            msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
         msg.delete();
     }
@@ -314,6 +326,11 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         if (!guildsBroadcasts.has(msg.guild.id)) {
             guildsBroadcasts.set(msg.guild.id, bot.voice.createBroadcast());
         }
+
+        if (!guildsPlaylists.has(msg.guild.id)) {
+            guildsPlaylists.set(msg.guild.id, new Map());
+        }
+
         let channel = msg.guild.member(msg.author).voice.channel;
         if (channel != null) {
             if (!channelsQueues.has(channel.id)) {
@@ -347,6 +364,85 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function stopSong(splitted, msg) {
         construct(msg);
         guildsBroadcasts.get(msg.guild.id).end();
+    }
+
+    function save(splitted, msg) {
+        if(splitted.length > 1 && splitted[1].length > 0) {
+            if(construct(msg)) {
+                let channel = msg.guild.member(msg.author).voice.channel;
+                let queue = channelsQueues.get(channel.id);
+                if(queue.length > 0) {
+                    let playlists = guildsPlaylists.get(msg.guild.id);
+                    playlists.set(splitted[1], queue.slice());
+                    msg.reply("playlist " + splitted[0] + " has been saved!").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                } else {
+                    msg.reply("queue in that channel is empty! use !q to add tracks").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                }
+            } else {
+                msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
+            }
+        } else {
+            msg.reply("specify playlist NAME").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+        msg.delete();
+    }
+
+    function playPlaylist(splitted, msg) {
+        if(splitted.length > 1 && splitted[1].length > 0) {
+            if(construct(msg)) {
+                let channel = msg.guild.member(msg.author).voice.channel;
+                let playlists = guildsPlaylists.get(msg.guild.id);
+                let playlist = playlists.get(splitted[1]);
+                if(typeof playlist != "undefined") {
+                    channelsQueues.set(channel.id, playlist.slice());
+                    msg.reply("playlist " + splitted[1] + " set as queue! use !play to start")
+                        .then(sentMessage => sentMessage.delete({timeout: 10000}));
+                } else {
+                    msg.reply("no playlist with such name").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                }
+            } else {
+                msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
+            }
+        } else {
+            msg.reply("specify playlist NAME").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+        msg.delete();
+    }
+
+    function showPlaylist(splitted, msg) {
+        construct(msg);
+        if(splitted.length > 1 && splitted[1].length > 0) {
+            let playlists = guildsPlaylists.get(msg.guild.id);
+            let playlist = playlists.get(splitted[1]);
+            if(typeof playlist != "undefined") {
+                let reply = "tracks for playlist " + splitted[1] + " are: \n"
+                let i = 0;
+                playlist.forEach(value => {
+                    reply += "" + i + ". " + value + " \n";
+                    i += 1;
+                });
+                msg.reply(reply).then(sentMessage => sentMessage.delete({timeout: 10000}));
+            } else {
+                msg.reply("no playlist with such name").then(sentMessage => sentMessage.delete({timeout: 10000}));
+            }
+        } else {
+            msg.reply("specify playlist NAME").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+        msg.delete();
+    }
+
+    function showPlaylists(splitted, msg) {
+        construct(msg);
+        let reply = "playlists for this guild are: \n";
+        let playlists = guildsPlaylists.get(msg.guild.id);
+        let i = 0;
+        playlists.forEach(function(value, key, map) {
+            reply += "" + i + ". " + key + " \n";
+            i += 1;
+        });
+        msg.reply(reply + "use !show <name> to see tracks").then(sentMessage => sentMessage.delete({timeout: 10000}));
+
+        msg.delete();
     }
 
     function test(splitted, msg) {
