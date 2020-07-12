@@ -11,7 +11,6 @@ const token = process.env.TOKEN;
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
 
     var unlocked = false;
-    var logChannels = new Map();
     var globalChannels = new Map();
     var chosenChannels = new Map();
 
@@ -29,16 +28,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         console.log('bot online');
         bot.guilds.cache.forEach(server => {
             server.channels.cache.forEach(channel => {
-                if (channel.name == "музыка") {
-                    //channel.send('онлайн').then(sentMessage => sentMessage.delete({
-                    //        timeout: 2000
-                    //    }))
-                    //    .catch(error => {
-                    //        // handle error
-                    //    });
-                    logChannels.set(server.id, channel);
-                }
-                if (channel.name == "основной-чат") {
+                if (channel.type == "text") {
                     globalChannels.set(server.id, channel);
                 }
             });
@@ -127,13 +117,18 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function resetStrawpoll(splitted, msg) {
         let guildMember = msg.guild.member(msg.author);
         let channel = guildMember.voice.channel;
-        if(chosenChannels.has(channel.id)) {
-            chosenChannels.get(channel.id).clear();
+        if(channel != null) {
+            if(chosenChannels.has(channel.id)) {
+                chosenChannels.get(channel.id).clear();
+            } else {
+                chosenChannels.set(channel.id, new Map());
+            };
+            msg.channel.send("расчет в канале " + guildMember.voice.channel.name + " обнулен")
+                .then(sentMessage => sentMessage.delete({timeout: 10000}))
+                .catch(error => {console.error});
         } else {
-            chosenChannels.set(channel.id, new Map());
-        };
-        msg.channel.send("расчет в канале " + guildMember.voice.channel.name + " обнулен").then(sentMessage => sentMessage.delete({timeout: 10000}))
-           .catch(error => {console.error});
+            msg.reply("you are not connected to any voice channels");
+        }
         msg.delete();
     }
 
@@ -231,7 +226,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
     var guildsBroadcasts = new Map();
     var guildsQueues = new Map();
-    var guildsVolumes = new Map();
+    var channelsVolumes = new Map();
 
     function playSong(splitted, msg) {
         if(msg.guild.member(msg.author).voice.channel != null) {
@@ -248,18 +243,16 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
          msg.delete();
     };
 
-    function play() {
-
-    }
-
     function nextSong(msg) {
         let queue = guildsQueues.get(msg.guild.id);
         if(queue.length > 0) {
+            let channel = msg.guild.member(msg.author).voice.channel;
             msg.guild.member(msg.author).voice.channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
                 let stream = ytdl(queue.shift());
                 let dispatcher = broadcast.play(stream);
-                dispatcher.setVolume(guildsVolumes.get(msg.guild.id));
+
+                dispatcher.setVolume(channelsVolumes.get(channel.id));
                 connection.play(broadcast);
 
                 let temp = function () {nextSong(msg)};
@@ -267,8 +260,6 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
                 stream.on('info', (info) => {
                     msg.reply("now playing: " + info.videoDetails.title);
-                    //console.log(info.title);     // Tobu - Roots
-                    //console.log(info.video_id);  // H7NuU-dDRLU
                 });
 
 
@@ -306,10 +297,6 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         msg.delete();
     }
 
-    function test(splitted, msg) {
-        logChannels.get(msg.guild.id).send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
-    };
-
     function construct(msg) {
         if (!guildsQueues.has(msg.guild.id)) {
             guildsQueues.set(msg.guild.id, new Array());
@@ -317,19 +304,30 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         if (!guildsBroadcasts.has(msg.guild.id)) {
             guildsBroadcasts.set(msg.guild.id, bot.voice.createBroadcast());
         }
-        if (!guildsVolumes.has(msg.guild.id)) {
-            guildsVolumes.set(msg.guild.id, 0.05);
+        var channel = msg.guild.member(msg.author).voice.channel;
+        if (channel != null) {
+            if(!channelsVolumes.has(channel.id)) {
+                channelsVolumes.set(channel.id, 0.05);
+            }
+        } else {
+            return false;
         }
+
+        return true;
     }
 
     function setVolume(splitted, msg) {
-        construct(msg);
-        guildsVolumes.set(msg.guild.id, splitted[1]);
-        var dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
-        if(dispatcher != null) {
-            guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(guildsVolumes.get(msg.guild.id));
+        if(construct(msg)) {
+            let channel = msg.guild.member(msg.author).voice.channel;
+            channelsVolumes.set(channel.id, splitted[1]);
+            let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
+            if(dispatcher != null) {
+                guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
+            }
+            msg.reply("volume for channel " + channel.name + " set to " + splitted[1]);
+        } else {
+            msg.reply("you are not connected to any voice channels")
         }
-        msg.reply("volume for this guild set to " + splitted[1]);
         msg.delete();
     }
 
@@ -337,6 +335,10 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
         construct(msg);
         guildsBroadcasts.get(msg.guild.id).end();
     }
+
+    function test(splitted, msg) {
+        msg.channel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
+    };
 
     bot.login(token);
 
