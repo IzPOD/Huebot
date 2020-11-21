@@ -256,8 +256,10 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             let channel = msg.guild.member(msg.author).voice.channel;
             if(splitted.length > 1) {
                 channelsQueues.get(channel.id).unshift(splitted[1]);
+                console.log("song acquired");
                 nextSong(msg, channel);
             } else {
+                console.log("no song, restarting player...")
                 nextSong(msg, channel);
             }
          } else {
@@ -267,24 +269,29 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     };
 
     function nextSong(msg, channel) {
+        console.log("trying to play next song");
         let queue = channelsQueues.get(channel.id);
         if(queue.length > 0) {
+            console.log("playing next song: joining");
             channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
                 let stream = ytdl(queue.shift());
                 let dispatcher = broadcast.play(stream);
 
                 dispatcher.setVolume(channelsVolumes.get(channel.id));
+                console.log("playing next song: broadcasting");
+                console.log(stream);
                 connection.play(broadcast);
 
                 let temp = function () {nextSong(msg, channel)};
                 dispatcher.on('finish', temp);
 
+                console.log("playing next song: fetching info");
                 stream.on('info', (info) => {
                     msg.reply("now playing: " + info.videoDetails.title);
                 });
 
-
+                console.log("playing next song: queuing");
                 if(queue.length > 0) {
                     let nextStream = ytdl(queue[0]);
                     nextStream.on('info', (info) => {
@@ -297,7 +304,9 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             }).catch(error => msg.reply("не найдено: " + error).then(sentMessage => sentMessage.delete({timeout: 10000})));
         } else {
             msg.channel.send("конец очереди").then(sentMessage => sentMessage.delete({timeout: 10000}));
+            console.log("playing next song: no songs");
         }
+        console.log("playing next song: procedure ended");
     }
 
     function queueSong(splitted, msg) {
