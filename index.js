@@ -26,6 +26,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     rl.on('close', () => {unlocked = true});
 
     bot.on('ready', () => {
+        loadPlaylistsData();
         console.log('bot online');
         bot.guilds.cache.forEach(server => {
             server.channels.cache.forEach(channel => {
@@ -456,7 +457,8 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 if(queue.length > 0) {
                     let playlists = guildsPlaylists.get(msg.guild.id);
                     playlists.set(splitted[1], queue.slice());
-                    msg.reply("playlist " + splitted[0] + " has been saved!").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                    savePlaylistsData();
+                    msg.reply("playlist " + splitted[1] + " has been saved!").then(sentMessage => sentMessage.delete({timeout: 10000}));
                 } else {
                     msg.reply("queue in that channel is empty! use !q to add tracks").then(sentMessage => sentMessage.delete({timeout: 10000}));
                 }
@@ -530,6 +532,59 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function test(splitted, msg) {
         msg.channel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
     };
+
+    function savePlaylistsData() {
+        fs.stat('./tmp/test', function(err, stat) {
+            if(err == null) {
+                console.log('File exists');
+                fs.writeFile("./tmp/test", JSON.stringify(guildsPlaylists, replacer), function(err2){
+                    if(err2) {
+                        return console.log(err);
+                    }
+                    console.log("saved");
+                });
+            } else if(err.code === 'ENOENT') {
+                // file does not exist
+                fs.writeFile("./tmp/test", JSON.stringify(guildsPlaylists, replacer), function(err2){
+                    if(err2) {
+                        return console.log(err);
+                    }
+                    console.log("saved");
+                });
+            } else {
+                console.log('Some other error: ', err);
+            }
+        });
+    }
+
+    function loadPlaylistsData() {
+       fs.stat('./tmp/test', function(err, stat) {
+           if(err == null) {
+               console.log('File exists');
+               const fileContents = fs.readFileSync('./tmp/test').toString();
+               guildsPlaylists = JSON.parse(fileContents, reviver);
+           } else if(err.code === 'ENOENT') {
+               // file does not exist
+               console.log("no save");
+           } else {
+               console.log('Some other error: ', err);
+           }
+       });
+    }
+
+    function replacer (key, value) {
+        if (value instanceof Map) {
+            return {
+                _type: "map",
+                map: [...value],
+            }
+        } else return value;
+    }
+
+    function reviver (key, value) {
+        if (value._type == "map") return new Map(value.map);
+        else return value;
+    }
 
     bot.login(token);
 
