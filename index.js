@@ -1,4 +1,5 @@
 "use strict"
+const ytpl = require('ytpl');
 const Discord = require('discord.js');
 const ytdl = require('ytdl-core');
 const bot = new Discord.Client();
@@ -107,6 +108,9 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             case '!clear':
                 clearQueue(splitted, msg);
                 break;
+            case "!ytpl":
+                queueYtpl(splitted, msg);
+                break;
         }
     });
 
@@ -133,7 +137,9 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             "!save                               - сохранить очередь как плейлист под указанным именем\n" +
             "!playlist                           - установить в качестве очереди указаный плейлист \n" +
             "!playlists                          - список плейлистов на сервере\n" +
-            "!show                               - список треков в указанном плейлисте\n");
+            "!show                               - список треков в указанном плейлисте\n" +
+            "!clear                              - очистить очередь\n" +
+            "!ytpl                               - загрузить в очередь плейлист с YouTube\n");
         msg.delete();
     }
 
@@ -335,6 +341,31 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             guildsBroadcasts.get(msg.guild.id).end();
             msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
             nextSong(msg, channel);
+        } else {
+            msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+        msg.delete();
+    }
+
+    async function queueYtpl(splitted, msg) {
+        if(construct(msg)) {
+            let channel = msg.guild.member(msg.author).voice.channel;
+            let queue = channelsQueues.get(channel.id);
+            if(splitted.length > 1) {
+                const ytplID = await ytpl.getPlaylistID(splitted[1]);
+                const ytplaylist = await ytpl(ytplID, {pages: Infinity });
+                ytplaylist.items.forEach(function(item, i, arr) {
+                    queue.push(item.shortUrl);
+                })
+                queue.push(splitted[1]);
+                msg.reply("queued song for " + channel.name + ". queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
+            } else {
+                let reply = "playlist for " + channel.name + " is: \n"
+                queue.forEach(function(item, i, arr) {
+                    reply += "" + i + ". " + item + " \n";
+                });
+                msg.reply(reply).then(sentMessage => sentMessage.delete({timeout: 10000}));
+            }
         } else {
             msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
