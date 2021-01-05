@@ -10,6 +10,16 @@ dotenv.config();
 
 const token = process.env.TOKEN;
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
+const { Client } = require('pg');
+
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      }
+    });
+
+    client.connect();
 
     var unlocked = false;
     var globalChannels = new Map();
@@ -26,7 +36,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     rl.on('close', () => {unlocked = true});
 
     bot.on('ready', () => {
-        loadPlaylistsData();
+        //loadPlaylistsData();
         console.log('bot online');
         bot.guilds.cache.forEach(server => {
             server.channels.cache.forEach(channel => {
@@ -256,7 +266,6 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     var guildsBroadcasts = new Map();
     var channelsQueues = new Map();
     var channelsVolumes = new Map();
-    var guildsPlaylists = new Map();
 
     function playSong(splitted, msg) {
         if(construct(msg)) {
@@ -287,7 +296,6 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
                 dispatcher.setVolume(channelsVolumes.get(channel.id));
                 console.log("playing next song: broadcasting");
-                console.log(stream);
                 connection.play(broadcast);
 
                 let temp = function () {nextSong(msg, channel)};
@@ -296,6 +304,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 console.log("playing next song: fetching info");
                 stream.on('info', (info) => {
                     msg.reply("now playing: " + info.videoDetails.title);
+                    console.log("playing song: " + info.videoDetails.title);
                 });
 
                 console.log("playing next song: queuing");
@@ -379,10 +388,6 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
             guildsBroadcasts.set(msg.guild.id, bot.voice.createBroadcast());
         }
 
-        if (!guildsPlaylists.has(msg.guild.id)) {
-            guildsPlaylists.set(msg.guild.id, new Map());
-        }
-
         let channel = msg.guild.member(msg.author).voice.channel;
         if (channel != null) {
             if (!channelsQueues.has(channel.id)) {
@@ -455,9 +460,7 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
                 let channel = msg.guild.member(msg.author).voice.channel;
                 let queue = channelsQueues.get(channel.id);
                 if(queue.length > 0) {
-                    let playlists = guildsPlaylists.get(msg.guild.id);
-                    playlists.set(splitted[1], queue.slice());
-                    savePlaylistsData();
+                    savePlaylistDataToDB(msg.guild.id, splitted[1], queue);
                     msg.reply("playlist " + splitted[1] + " has been saved!").then(sentMessage => sentMessage.delete({timeout: 10000}));
                 } else {
                     msg.reply("queue in that channel is empty! use !q to add tracks").then(sentMessage => sentMessage.delete({timeout: 10000}));
@@ -473,17 +476,20 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
     function playPlaylist(splitted, msg) {
         if(splitted.length > 1 && splitted[1].length > 0) {
+            let guildId = msg.guild.id;
+            let playlistName = splitted[1];
+            let channel = msg.guild.member(msg.author).voice.channel;
             if(construct(msg)) {
-                let channel = msg.guild.member(msg.author).voice.channel;
-                let playlists = guildsPlaylists.get(msg.guild.id);
-                let playlist = playlists.get(splitted[1]);
-                if(typeof playlist != "undefined") {
-                    channelsQueues.set(channel.id, playlist.slice());
-                    msg.reply("playlist " + splitted[1] + " set as queue! use !play to start")
-                        .then(sentMessage => sentMessage.delete({timeout: 10000}));
-                } else {
-                    msg.reply("no playlist with such name").then(sentMessage => sentMessage.delete({timeout: 10000}));
-                }
+                getPlaylistByName(guildId, playlistName).then(playlistId => {
+                    if(playlistId != undefined) {
+                        loadSongs(playlistId).then(songs => {
+                            channelsQueues.set(channel.id, songs);
+                            msg.reply("playlist " + splitted[1] + " set as queue! use !play to start").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                        });
+                    } else {
+                        msg.reply("no playlist with such name").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                    }
+                });
             } else {
                 msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
             }
@@ -495,20 +501,21 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
 
     function showPlaylist(splitted, msg) {
         construct(msg);
+        let guildId = msg.guild.id;
         if(splitted.length > 1 && splitted[1].length > 0) {
-            let playlists = guildsPlaylists.get(msg.guild.id);
-            let playlist = playlists.get(splitted[1]);
-            if(typeof playlist != "undefined") {
-                let reply = "tracks for playlist " + splitted[1] + " are: \n"
-                let i = 0;
-                playlist.forEach(value => {
-                    reply += "" + i + ". " + value + " \n";
-                    i += 1;
-                });
-                msg.reply(reply).then(sentMessage => sentMessage.delete({timeout: 10000}));
-            } else {
-                msg.reply("no playlist with such name").then(sentMessage => sentMessage.delete({timeout: 10000}));
-            }
+            getPlaylistByName(guildId, splitted[1]).then(res => {
+                if(res != undefined) {
+                    loadSongs(res).then(songs => {
+                        let reply = "tracks for playlist " + splitted[1] + " are: \n";
+                        for(let i =0; i < songs.length; i++) {
+                            reply += "" + i + ". " + songs[i] + " \n";
+                        }
+                        msg.reply(reply).then(sentMessage => sentMessage.delete({timeout: 10000}));
+                    });
+                } else {
+                    msg.reply("no playlist with such name").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                }
+            });
         } else {
             msg.reply("specify playlist NAME").then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
@@ -518,73 +525,127 @@ const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.
     function showPlaylists(splitted, msg) {
         construct(msg);
         let reply = "playlists for this guild are: \n";
-        let playlists = guildsPlaylists.get(msg.guild.id);
-        let i = 0;
-        playlists.forEach(function(value, key, map) {
-            reply += "" + i + ". " + key + " \n";
-            i += 1;
-        });
-        msg.reply(reply + "use !show <name> to see tracks").then(sentMessage => sentMessage.delete({timeout: 10000}));
 
-        msg.delete();
+        loadPlaylistsData(msg.guild.id).then(playlists => {
+            for(let i = 0; i < playlists.length; i++) {
+                reply += "" + i + ".\t" + playlists[i] + " \n";
+            }
+            msg.reply(reply + "use !show <name> to see tracks").then(sentMessage => sentMessage.delete({timeout: 10000}));
+
+            msg.delete();
+        });
     }
 
     function test(splitted, msg) {
         msg.channel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
     };
 
-    function savePlaylistsData() {
-        fs.stat('./tmp/test', function(err, stat) {
-            if(err == null) {
-                console.log('File exists');
-                fs.writeFile("./tmp/test", JSON.stringify(guildsPlaylists, replacer), function(err2){
-                    if(err2) {
-                        return console.log(err);
+    bot.login(token);
+
+//    client.connect();
+//    client.query('drop table s, ps, gp');
+//    client.query('create table GP (Guild VARCHAR(255) PRIMARY KEY)');
+//    client.query('CREATE TABLE PS (PlayListID SERIAL PRIMARY KEY, playlistName VARCHAR(255), Guild VARCHAR(255) REFERENCES gp (guild), CONSTRAINT C_playlist UNIQUE  (playlistName, guild))');
+//    client.query('CREATE TABLE S (SongID SERIAL, URL VARCHAR(255), PlayListID INTEGER REFERENCES ps (playlistid), PRIMARY KEY (songid, playlistid))', (err, res) => {
+//        if(err) {
+//            console.log(err);
+//        }
+//    });
+
+    function savePlaylistDataToDB(guild, name, playlist) {
+        let values = [guild];
+        client.query('insert into gp (guild) values ($1) ON CONFLICT (guild) DO NOTHING', values, (err, res) => {
+            if (err) {
+                console.log(err);
+                return;
+            }
+            insertPlaylist(guild, name, playlist);
+
+        });
+    }
+
+    function insertPlaylist(guild, name, playlist) {
+        let values = [name, guild];
+        client.query('SELECT * FROM ps where guild = $2 and playlistname = $1 FETCH FIRST ROW ONLY;', values, (err, res) => {
+            if(err) {
+                console.log(err);
+                return;
+            }
+
+            if(res.rowCount > 0) {
+                let fetchedPlaylistId = res.rows[0].playlistid;
+                let delValues = [fetchedPlaylistId];
+                client.query('DELETE FROM s WHERE playlistid = $1', delValues, (err, res) => {
+                    if(err) {
+                        console.log(err);
+                        return;
                     }
-                    console.log("saved");
-                });
-            } else if(err.code === 'ENOENT') {
-                // file does not exist
-                fs.writeFile("./tmp/test", JSON.stringify(guildsPlaylists, replacer), function(err2){
-                    if(err2) {
-                        return console.log(err);
-                    }
-                    console.log("saved");
+
+                    insertSongs(fetchedPlaylistId, playlist);
                 });
             } else {
-                console.log('Some other error: ', err);
+                client.query('INSERT INTO ps (playlistname, guild) values ($1, $2) ON CONFLICT (playlistname, guild) DO NOTHING;', values, (err, res) => {
+                    if(err) {
+                        console.log(err);
+                        return;
+                    }
+                    insertPlaylist(guild, name, playlist);
+                });
             }
         });
     }
 
-    function loadPlaylistsData() {
-       fs.stat('./tmp/test', function(err, stat) {
-           if(err == null) {
-               console.log('File exists');
-               const fileContents = fs.readFileSync('./tmp/test').toString();
-               guildsPlaylists = JSON.parse(fileContents, reviver);
-           } else if(err.code === 'ENOENT') {
-               // file does not exist
-               console.log("no save");
-           } else {
-               console.log('Some other error: ', err);
-           }
-       });
+    async function insertSongs(fetchedPlaylistId, playlist) {
+
+        playlist.forEach(function(item, i, arr) {
+            let values = [item, fetchedPlaylistId];
+            client.query('insert into s (URL, playlistid) VALUES ($1, $2);', values, (err, res) => {
+                if(err) {
+                    console.log(err);
+                }
+
+            });
+        });
     }
 
-    function replacer (key, value) {
-        if (value instanceof Map) {
-            return {
-                _type: "map",
-                map: [...value],
+    async function loadPlaylistsData(guildid) {
+        let values = [guildid];
+        let playlists = new Array();
+        try {
+            let res = await client.query('select * from ps where guild = $1', values);
+            for (let row of res.rows) {
+                playlists.push(row.playlistname);
+                //loadSongs(row);
             }
-        } else return value;
+        } catch (err) {
+            console.log(err);
+        }
+        return playlists;
     }
 
-    function reviver (key, value) {
-        if (value._type == "map") return new Map(value.map);
-        else return value;
+    async function getPlaylistByName(guildid, playlistname) {
+        let values = [guildid, playlistname];
+        try {
+            let res = await client.query('select playlistid from ps where guild = $1 and playlistname = $2', values);
+            if(res.rowCount == 1) {
+                return res.rows[0].playlistid;
+            }
+        } catch (err) {
+            console.log(err);
+        }
     }
 
-    bot.login(token);
+    async function loadSongs(playlistid) {
+        let values = [playlistid]
+        try {
+            let res = await client.query('SELECT URL FROM s WHERE playlistid = $1', values);
+            let playlist = [];
+            for (let row of res.rows) {
+                playlist.push(row.url);
+            }
+            return playlist;
+        } catch (err) {
+            console.log(err);
+        }
+    }
 

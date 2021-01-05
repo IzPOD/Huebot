@@ -1,0 +1,5 @@
+Drop table s, ps, gp;
+
+create table GP (Guild VARCHAR(255) PRIMARY KEY);
+CREATE TABLE PS (PlayListID SERIAL PRIMARY KEY, playlistName VARCHAR(255), Guild VARCHAR(255) REFERENCES gp (guild), CONSTRAINT C_gn UNIQUE(Guild, playlistName);
+CREATE TABLE S (SongID SERIAL PRIMARY KEY, URL VARCHAR(255), PlayListID INTEGER REFERENCES ps (playlistid));
