@@ -9,7 +9,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const token = process.env.TOKEN;
-const exampleEmbed = new Discord.MessageEmbed().setImage('https://unvegetariano.com/images/sad-cat-png-3.png');
+const exampleEmbed = new Discord.MessageEmbed().setImage('https://memestatic.fjcdn.com/pictures/Real+sad+cat+hours_b7506e_7169732.jpg');
 const { Client } = require('pg');
 
     const client = new Client({
@@ -540,7 +540,7 @@ const { Client } = require('pg');
     }
 
     function test(splitted, msg) {
-        msg.channel.send('<@' + msg.author.id + '>', exampleEmbed).catch(console.error);
+        msg.reply("ready for your orders", exampleEmbed).catch(console.error);
     };
 
     bot.login(token);
