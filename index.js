@@ -9,7 +9,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const token = process.env.TOKEN;
-const exampleEmbed = new Discord.MessageEmbed().setImage('https://memestatic.fjcdn.com/pictures/Real+sad+cat+hours_b7506e_7169732.jpg');
+const exampleEmbed = new Discord.MessageEmbed().setImage('https://sun1-21.userapi.com/impf/c627929/v627929293/35981/Fz84wfO-VxA.jpg?size=200x0&quality=96&crop=211,83,662,662&sign=02c539a13b806991da791ce8e439d1c1&c_uniq_tag=--cJ4HBvfAAumu5tYMQQWdVIkhED88J1ir7kYQH1qYE&ava=1')
+    .setTitle("ready for your command");
 const { Client } = require('pg');
 
     const client = new Client({
@@ -540,7 +541,7 @@ const { Client } = require('pg');
     }
 
     function test(splitted, msg) {
-        msg.reply("ready for your orders", exampleEmbed).catch(console.error);
+        msg.reply(exampleEmbed).then(sentMessage => sentMessage.delete({timeout: 100000})).catch(console.error);
     };
 
     bot.login(token);
