@@ -291,18 +291,23 @@ const { Client } = require('pg');
             console.log("playing next song: joining");
             channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
-                let stream = ytdl(queue.shift());
-                let dispatcher = broadcast.play(stream);
+                broadcast.end();
+                let stream = ytdl(queue.shift(), {filter: 'audioonly'});
 
-                dispatcher.setVolume(channelsVolumes.get(channel.id));
-                console.log("playing next song: broadcasting");
-                connection.play(broadcast);
-
-                let temp = function () {nextSong(msg, channel)};
-                dispatcher.on('finish', temp);
 
                 console.log("playing next song: fetching info");
                 stream.on('info', (info) => {
+                    let dispatcher = broadcast.play(stream);
+                    dispatcher.setVolume(channelsVolumes.get(channel.id));
+                    console.log("playing next song: broadcasting");
+                    connection.play(broadcast);
+
+                    let temp = function () {nextSong(msg, channel)};
+                    dispatcher.on('finish', temp);
+                    dispatcher.on('end', reason => {
+                        console.log(reason);
+                    });
+
                     msg.reply("now playing: " + info.videoDetails.title);
                     console.log("playing song: " + info.videoDetails.title);
                 });
@@ -315,6 +320,7 @@ const { Client } = require('pg');
                         if(queue.length > 1) {
                             msg.reply("and " + (queue.length - 1) + " to go!").then(sentMessage => sentMessage.delete({timeout: 10000}));;
                         }
+                        console.log("next should be: " + info.videoDetails.title);
                     });
                 }
             }).catch(error => msg.reply("не найдено: " + error).then(sentMessage => sentMessage.delete({timeout: 10000})));
@@ -370,10 +376,7 @@ const { Client } = require('pg');
                 queue.push(splitted[1]);
                 msg.reply("queued song for " + channel.name + ". queue size: " + queue.length).then(sentMessage => sentMessage.delete({timeout: 10000}));
             } else {
-                let reply = "playlist for " + channel.name + " is: \n"
-                queue.forEach(function(item, i, arr) {
-                    reply += "" + i + ". " + item + " \n";
-                });
+                let reply = "please specify ytpl link";
                 msg.reply(reply).then(sentMessage => sentMessage.delete({timeout: 10000}));
             }
         } else {
