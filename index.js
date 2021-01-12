@@ -92,6 +92,7 @@ const { Client } = require('pg');
                 break;
             case 'скип':
             case '!skip':
+            case '!next':
                 skipSong(splitted, msg);
                 break;
             case 'звук':
@@ -289,24 +290,42 @@ const { Client } = require('pg');
         console.log("trying to play next song");
         let queue = channelsQueues.get(channel.id);
         if(queue.length > 0) {
+            if(!ytdl.validateURL(queue[0])) {
+                nextSong(msg, channel);
+                return;
+            }
             console.log("playing next song: joining");
             channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
                 broadcast.end();
-                let stream = ytdl(queue.shift(), {filter: 'audioonly'});
-
+                let stream = ytdl(queue.shift(), {filter: 'audio'});
 
                 console.log("playing next song: fetching info");
+                stream.on('error', (error) => {
+                    console.log(error);
+                    msg.reply("sorry, but the video is unavailable").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                    nextSong(msg, channel);
+                });
+
                 stream.on('info', (info) => {
                     let dispatcher = broadcast.play(stream);
                     dispatcher.setVolume(channelsVolumes.get(channel.id));
                     console.log("playing next song: broadcasting");
-                    connection.play(broadcast);
+                    let streamDispatcher = connection.play(broadcast);
 
-                    let temp = function () {nextSong(msg, channel)};
+                    let temp = function () {
+                        console.log(info.videoDetails.title + " has ended");
+                        streamDispatcher.destroy();
+                        dispatcher.end();
+                        nextSong(msg, channel);
+
+                    };
                     dispatcher.on('finish', temp);
                     dispatcher.on('end', reason => {
-                        console.log(reason);
+                        console.log("ended: " + reason);
+                        streamDispatcher.destroy();
+                        dispatcher.end();
+                        nextSong(msg, channel);
                     });
 
                     msg.reply("now playing: " + info.videoDetails.title);
@@ -319,7 +338,7 @@ const { Client } = require('pg');
                     nextStream.on('info', (info) => {
                         msg.reply("next: " + info.videoDetails.title).then(sentMessage => sentMessage.delete({timeout: 10000}));
                         if(queue.length > 1) {
-                            msg.reply("and " + (queue.length - 1) + " to go!").then(sentMessage => sentMessage.delete({timeout: 10000}));;
+                            msg.reply("and " + (queue.length - 1) + " to go!").then(sentMessage => sentMessage.delete({timeout: 10000}));
                         }
                         console.log("next should be: " + info.videoDetails.title);
                     });
