@@ -290,7 +290,9 @@ const { Client } = require('pg');
         console.log("trying to play next song");
         let queue = channelsQueues.get(channel.id);
         if(queue.length > 0) {
-            if(!ytdl.validateURL(queue[0])) {
+            let url = queue.shift();
+            if(!ytdl.validateURL(url)) {
+                msg.reply("bad URL").then(sentMessage => sentMessage.delete({timeout: 10000}));
                 nextSong(msg, channel);
                 return;
             }
@@ -298,7 +300,7 @@ const { Client } = require('pg');
             channel.join().then(connection => {
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
                 broadcast.end();
-                let stream = ytdl(queue.shift(), {filter: 'audio'});
+                let stream = ytdl(url, {filter: 'audio'});
 
                 console.log("playing next song: fetching info");
                 stream.on('error', (error) => {
@@ -341,6 +343,9 @@ const { Client } = require('pg');
                             msg.reply("and " + (queue.length - 1) + " to go!").then(sentMessage => sentMessage.delete({timeout: 10000}));
                         }
                         console.log("next should be: " + info.videoDetails.title);
+                    });
+                    nextStream.on('error', (error) => {
+                        console.log(error);
                     });
                 }
             }).catch(error => msg.reply("не найдено: " + error).then(sentMessage => sentMessage.delete({timeout: 10000})));
