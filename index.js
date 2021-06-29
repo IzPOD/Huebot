@@ -1,4 +1,5 @@
 "use strict"
+
 const ytpl = require('ytpl');
 const Discord = require('discord.js');
 const ytdl = require('ytdl-core');
@@ -6,6 +7,7 @@ const bot = new Discord.Client();
 const fs = require('fs');
 const readline = require('readline');
 const dotenv = require('dotenv');
+const tools = require('./tools');
 dotenv.config();
 
 const token = process.env.TOKEN;
@@ -23,7 +25,7 @@ const { Client } = require('pg');
     client.connect();
 
     var unlocked = false;
-    var globalChannels = new Map();
+    var musicChannels = new Map();
     var chosenChannels = new Map();
 
     const rl = readline.createInterface({
@@ -38,14 +40,7 @@ const { Client } = require('pg');
 
     bot.on('ready', () => {
         //loadPlaylistsData();
-        console.log('bot online');
-        bot.guilds.cache.forEach(server => {
-            server.channels.cache.forEach(channel => {
-                if (channel.type == "text") {
-                    globalChannels.set(server.id, channel);
-                }
-            });
-        });
+        tools.onReady(bot, musicChannels);
     });
 
     bot.on('message', msg => {
@@ -131,7 +126,7 @@ const { Client } = require('pg');
     });
 
     bot.on("guildMemberAdd", member => {
-        globalChannels.get(msg.guild.id).send('<@' + member.id + '>', exampleEmbed).catch(console.error);
+        //globalChannels.get(msg.guild.id).send('<@' + member.id + '>', exampleEmbed).catch(console.error);
     });
 
     function helpMessage(splitted, msg) {
@@ -676,4 +671,5 @@ const { Client } = require('pg');
             console.log(err);
         }
     }
+
 
