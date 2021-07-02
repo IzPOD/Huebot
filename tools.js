@@ -1,4 +1,5 @@
 const { TextChannel, GuildChannel, MessageEmbed } = require("discord.js");
+var os = require('os');
 
 module.exports = {
     onReady: function (bot, globalChannels) {
@@ -16,8 +17,23 @@ module.exports = {
           updateStatus(globalChannel);
       });
     },
-    bar: function () {
-      
+
+    connect: function(msg) {
+        let channel = msg.guild.member(msg.author).voice.channel;
+        if(channel != null) {
+            channel.join();
+        } else {
+            msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
+    },
+
+    disconnect: function(msg) {
+        let channel = msg.guild.member(msg.author).voice.channel;
+        if(channel != null) {
+            channel.leave();
+        } else {
+            msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
+        }
     }
   };
 
@@ -52,8 +68,34 @@ function updateStatus(channel) {
     .setColor(0x990000)
     .setTimestamp(new Date());
     exampleEmbed.setDescription("PINGING");
+    //exampleEmbed.addField('CPU', getLoad().CPU, true)
 
     channel.send(exampleEmbed).then(embedMessage => updateMessage(embedMessage));
 }
 
+var oldCPUTime = 0
+var oldCPUIdle = 0
+function getLoad(){
+    var cpus = os.cpus()
+    var totalTime = -oldCPUTime
+    var totalIdle = -oldCPUIdle
+    for(var i = 0; i < cpus.length; i++) {
+        var cpu = cpus[i]
+        for(var type in cpu.times) {
+            totalTime += cpu.times[type];
+            if(type == "idle"){
+                totalIdle += cpu.times[type];
+            }
+        }
+    }
+
+    var CPUload = 100 - Math.round(totalIdle/totalTime*100)
+    oldCPUTime = totalTime
+    oldCPUIdle = totalIdle
+
+    return {
+        CPU:CPUload,
+        mem:100 - Math.round(os.freemem()/os.totalmem()*100)
+    }       
+}
 

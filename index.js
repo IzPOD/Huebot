@@ -8,6 +8,7 @@ const fs = require('fs');
 const readline = require('readline');
 const dotenv = require('dotenv');
 const tools = require('./tools');
+const tts = require('./tts');
 dotenv.config();
 
 const token = process.env.TOKEN;
@@ -92,10 +93,13 @@ const { Client } = require('pg');
                 break;
             case 'звук':
             case '!volume':
+            case '!v':
                 setVolume(splitted, msg);
                 break;
             case 'стоп':
             case '!stop':
+            case '!p':
+            case '!pause':
                 stopSong(splitted, msg);
                 break;
             case '!save':
@@ -111,6 +115,7 @@ const { Client } = require('pg');
                 showPlaylist(splitted, msg);
                 break;
             case '!resume':
+            case '!r':
                 resumeSong(splitted, msg);
                 break;
             case '!clear':
@@ -119,6 +124,15 @@ const { Client } = require('pg');
             case "!ytpl":
                 queueYtpl(splitted, msg);
                 break;
+            case "!join":
+            case "!j":
+                tools.connect(msg);
+                break;
+            case "!leave":
+            case "!l":
+                tools.disconnect(msg);
+                break;
+
         }
     });
 
@@ -240,27 +254,56 @@ const { Client } = require('pg');
     }
 
     function auf(splitted, msg) {
-        if(msg.guild.member(msg.author).voice.channel != null) {
+        if(msg.guild.member(msg.author).voice.channel != null && construct(msg)) {
             if(unlocked) {
+                pause(msg.guild.id);
+
+                let oldChannel = guildsVoiceChannels.get(msg.guild.id);
+
                 let broadcast = bot.voice.createBroadcast();
-                let dispatcher = broadcast.play('auf.mp3');
-                dispatcher.setVolume(0.01);
-                msg.channel.send('<@' + msg.author.id + '> ' + aufFileLines[Math.floor(Math.random() * aufFileLines.length)] + " АУФ :point_up:")
+                let text = aufFileLines[Math.floor(Math.random() * aufFileLines.length)];
+
+                let dispatcher = broadcast.play('auf.mp3');//tts.tts(broadcast, text + " АУФ"); //
+                console.log(channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id));
+                dispatcher.setVolume(channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id));
+                msg.channel.send('<@' + msg.author.id + '> ' + text + " АУФ :point_up:")
                     .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
                 let voiceChannel = msg.guild.member(msg.author).voice.channel;
-                voiceChannel.join().then(connection => connection.play(broadcast))
+                let currentConnection;
+                voiceChannel.join().then(connection => {
+                    currentConnection = connection;
+                    currentConnection.play(broadcast);
+                });
 
                 dispatcher.on('finish', () => {
-                    voiceChannel.leave();
+                    if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
+                        if(voiceChannel != oldChannel) {
+                            oldChannel.join().then(connection => {
+                                connection.play(guildsBroadcasts.get(msg.guild.id));
+                                resume(msg.guild.id);
+                            });
+                            
+                        } else {
+                            currentConnection.play(guildsBroadcasts.get(msg.guild.id));
+                            resume(msg.guild.id);
+                        }
+                        
+                    } else {
+                        voiceChannel.leave();
+                    }
+
+                    broadcast.end();
                 });
             }
         } else {
             msg.channel.send("в канал зайди, дебил!");
         }
         msg.delete();
+        
     };
 
     var guildsBroadcasts = new Map();
+    var guildsVoiceChannels = new Map();
     var channelsQueues = new Map();
     var channelsVolumes = new Map();
 
@@ -293,8 +336,13 @@ const { Client } = require('pg');
             }
             console.log("playing next song: joining");
             channel.join().then(connection => {
+                guildsVoiceChannels.set(msg.guild.id, channel);
+
                 let broadcast = guildsBroadcasts.get(msg.guild.id);
-                broadcast.end();
+
+                if(broadcast != undefined)
+                    broadcast.end();
+
                 let stream = ytdl(url, {filter: 'audio'});
 
                 console.log("playing next song: fetching info");
@@ -346,6 +394,8 @@ const { Client } = require('pg');
             }).catch(error => msg.reply("не найдено: " + error).then(sentMessage => sentMessage.delete({timeout: 10000})));
         } else {
             msg.channel.send("конец очереди").then(sentMessage => sentMessage.delete({timeout: 10000}));
+            guildsVoiceChannels.delete(msg.guild.id);
+            channel.leave;
             console.log("playing next song: no songs");
         }
         console.log("playing next song: procedure ended");
@@ -435,7 +485,7 @@ const { Client } = require('pg');
                 if(dispatcher != null) {
                     guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
                 }
-                msg.reply("volume for channel " + channel.name + " set to " + splitted[1] / 100)
+                msg.reply("volume for channel " + channel.name + " set to " + splitted[1])
                     .then(sentMessage => sentMessage.delete({timeout: 10000}));
             } else {
                  msg.reply("volume for this channel is: " + channelsVolumes.get(channel.id) + " specify value to set!")
@@ -449,11 +499,28 @@ const { Client } = require('pg');
 
     function stopSong(splitted, msg) {
         construct(msg);
-        let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
-        if(dispatcher != null) {
-            dispatcher.pause();
-        }
+        pause(msg.guild.id);
         msg.delete();
+    }
+
+    function pause(guildId) {
+        let broadcast = guildsBroadcasts.get(guildId);
+        if(broadcast != undefined) {
+            let dispatcher = broadcast.dispatcher;
+            if(dispatcher != null) {
+                dispatcher.pause();
+            }
+        }
+    }
+
+    function resume(guildId) {
+        let broadcast = guildsBroadcasts.get(guildId);
+        if(broadcast != undefined) {
+            let dispatcher = guildsBroadcasts.get(guildId).dispatcher;
+            if(dispatcher != null) {
+                dispatcher.resume();
+            }
+        }
     }
 
     function clearQueue(splitted, msg) {
@@ -470,10 +537,7 @@ const { Client } = require('pg');
 
     function resumeSong(splitted, msg) {
         construct(msg);
-        let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
-        if(dispatcher != null) {
-            dispatcher.resume();
-        }
+        resume(msg.guild.id);
         msg.delete();
     }
 
