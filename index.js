@@ -299,12 +299,15 @@ const { Client } = require('pg');
 
                         if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
                             if(voiceChannel != oldChannel) {
+                                console.log("trying to resume song on diffirent channel");
                                 oldChannel.join().then(connection => {
+                                    console.log("connected to the old channel");
                                     connection.play(guildsBroadcasts.get(msg.guild.id));
                                     resume(msg.guild.id);
                                 });
                                 
                             } else {
+                                console.log("trying to resume song on same channel");
                                 currentConnection.play(guildsBroadcasts.get(msg.guild.id));
                                 resume(msg.guild.id);
                             }
@@ -652,9 +655,13 @@ const { Client } = require('pg');
         let broadcast = guildsBroadcasts.get(guildId);
         if(broadcast != undefined) {
             let dispatcher = guildsBroadcasts.get(guildId).dispatcher;
+            console.log("trying to resume dispatcher");
             if(dispatcher != null) {
                 dispatcher.resume();
+                console.log("resumed");
             }
+        } else {
+            console.log("nothing to resume");
         }
     }
 
