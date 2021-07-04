@@ -5,6 +5,7 @@ const Discord = require('discord.js');
 const ytdl = require('ytdl-core');
 const bot = new Discord.Client();
 bot.setMaxListeners(100);
+process.setMaxListeners(100);
 const fs = require('fs');
 const readline = require('readline');
 const dotenv = require('dotenv');
@@ -34,6 +35,7 @@ const { get } = require('http');
     const rl = readline.createInterface({
         input: fs.createReadStream('auf')
     });
+
     var aufFileLines = new Array();
         rl.on('line', (line) => {
         aufFileLines.push(line);
@@ -553,6 +555,7 @@ const { get } = require('http');
                     console.log("skipped to the next");
                 } else {
                     broadcast.end();
+                    guildsBroadcasts.delete(msg.guild.id);
                     console.log("skipped to the end");
                 }
                 msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
