@@ -132,6 +132,9 @@ const { Client } = require('pg');
             case "!l":
                 tools.disconnect(msg);
                 break;
+            case "!say":
+                say(splitted, msg);
+                break;
 
         }
     });
@@ -253,6 +256,30 @@ const { Client } = require('pg');
         }
     }
 
+    function say(splitted, msg) {
+        let voiceChannel = msg.guild.member(msg.author).voice.channel;
+
+        if(splitted.length > 1 && voiceChannel != null && construct(msg)) {
+            voiceChannel.join().then(connection => {
+                let broadcast = bot.voice.createBroadcast();
+                let volume = channelsVolumes.get(voiceChannel.id);
+                let stream = tts.say(splitted.slice(1, splitted.length).toString());
+
+                let dispatcher = broadcast.play(stream);
+                dispatcher.setVolume(volume);
+                connection.play(broadcast);
+                
+                dispatcher.on('finish', () => console.log('finish'));
+                
+            });
+        
+        } else {
+            msg.channel.send("в канал зайди, дебил!");
+        }
+
+        msg.delete();
+    }
+
     function auf(splitted, msg) {
         if(msg.guild.member(msg.author).voice.channel != null && construct(msg)) {
             if(unlocked) {
@@ -260,39 +287,48 @@ const { Client } = require('pg');
 
                 let oldChannel = guildsVoiceChannels.get(msg.guild.id);
 
-                let broadcast = bot.voice.createBroadcast();
-                let text = aufFileLines[Math.floor(Math.random() * aufFileLines.length)];
-
-                let dispatcher = broadcast.play('auf.mp3');//tts.tts(broadcast, text + " АУФ"); //
-                console.log(channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id));
-                dispatcher.setVolume(channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id));
-                msg.channel.send('<@' + msg.author.id + '> ' + text + " АУФ :point_up:")
-                    .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
+                
                 let voiceChannel = msg.guild.member(msg.author).voice.channel;
                 let currentConnection;
                 voiceChannel.join().then(connection => {
+                    let broadcast = bot.voice.createBroadcast();
+                    let text = aufFileLines[Math.floor(Math.random() * aufFileLines.length)];
+                    let volume = channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id) + 0.25;
+                    let dispatcher = tts.tts(broadcast, text + " АУФ");
+
+                    dispatcher.setVolume(volume);
+                    msg.channel.send('<@' + msg.author.id + '> ' + text + " АУФ :point_up:")
+                        .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
+                        
                     currentConnection = connection;
                     currentConnection.play(broadcast);
-                });
+               
+                    dispatcher.on('finish', () => {
+                        dispatcher = broadcast.play('auf.mp3');
 
-                dispatcher.on('finish', () => {
-                    if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
-                        if(voiceChannel != oldChannel) {
-                            oldChannel.join().then(connection => {
-                                connection.play(guildsBroadcasts.get(msg.guild.id));
-                                resume(msg.guild.id);
-                            });
-                            
-                        } else {
-                            currentConnection.play(guildsBroadcasts.get(msg.guild.id));
-                            resume(msg.guild.id);
-                        }
-                        
-                    } else {
-                        voiceChannel.leave();
-                    }
+                        let volume = channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id);
+                        dispatcher.setVolume(volume);
 
-                    broadcast.end();
+                        dispatcher.on('finish', () => {
+                            if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
+                                if(voiceChannel != oldChannel) {
+                                    oldChannel.join().then(connection => {
+                                        connection.play(guildsBroadcasts.get(msg.guild.id));
+                                        resume(msg.guild.id);
+                                    });
+                                    
+                                } else {
+                                    currentConnection.play(guildsBroadcasts.get(msg.guild.id));
+                                    resume(msg.guild.id);
+                                }
+                                
+                            } else {
+                                voiceChannel.leave();
+                            }
+
+                            broadcast.end();
+                        });
+                    });
                 });
             }
         } else {
@@ -467,7 +503,7 @@ const { Client } = require('pg');
                 channelsQueues.set(channel.id, new Array());
             }
             if(!channelsVolumes.has(channel.id)) {
-                channelsVolumes.set(channel.id, 0.05);
+                channelsVolumes.set(channel.id, 0.15);
             }
         } else {
             return false;
