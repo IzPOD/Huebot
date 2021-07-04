@@ -4,6 +4,7 @@ const ytpl = require('ytpl');
 const Discord = require('discord.js');
 const ytdl = require('ytdl-core');
 const bot = new Discord.Client();
+bot.setMaxListeners(100);
 const fs = require('fs');
 const readline = require('readline');
 const dotenv = require('dotenv');
@@ -15,6 +16,7 @@ const token = process.env.TOKEN;
 const exampleEmbed = new Discord.MessageEmbed().setImage('https://sun1-21.userapi.com/impf/c627929/v627929293/35981/Fz84wfO-VxA.jpg?size=200x0&quality=96&crop=211,83,662,662&sign=02c539a13b806991da791ce8e439d1c1&c_uniq_tag=--cJ4HBvfAAumu5tYMQQWdVIkhED88J1ir7kYQH1qYE&ava=1')
     .setTitle("ready for your command");
 const { Client } = require('pg');
+const { get } = require('http');
 
     const client = new Client({
       connectionString: process.env.DATABASE_URL,
@@ -133,6 +135,8 @@ const { Client } = require('pg');
                 tools.disconnect(msg);
                 break;
             case "!say":
+            case "!s":
+            case "!сей":
                 say(splitted, msg);
                 break;
 
@@ -256,83 +260,138 @@ const { Client } = require('pg');
         }
     }
 
+    function lock(guildId) {
+        if(!guildsLocks.get(guildId)) {
+            guildsLocks.set(guildId, true);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function unlock(guildId) {
+        guildsLocks.set(guildId, false);
+    }
+
     function say(splitted, msg) {
         let voiceChannel = msg.guild.member(msg.author).voice.channel;
+        if(lock(msg.guild.id)) {
+            if(splitted.length > 1 && voiceChannel != null && construct(msg)) {
+                pause(msg.guild.id);
+                let oldChannel = guildsVoiceChannels.get(msg.guild.id);
+                let voiceChannel = msg.guild.member(msg.author).voice.channel;
+                let currentConnection;
+                    
+                voiceChannel.join().then(connection => {
+                    
+                    let broadcast = bot.voice.createBroadcast();
+                    let volume = channelsVolumes.get(voiceChannel.id) + 0.5;
+                    let stream = tts.say(splitted.slice(1, splitted.length).toString());
 
-        if(splitted.length > 1 && voiceChannel != null && construct(msg)) {
-            voiceChannel.join().then(connection => {
-                let broadcast = bot.voice.createBroadcast();
-                let volume = channelsVolumes.get(voiceChannel.id);
-                let stream = tts.say(splitted.slice(1, splitted.length).toString());
+                    let dispatcher = broadcast.play(stream);
+                    dispatcher.setVolume(volume);
 
-                let dispatcher = broadcast.play(stream);
-                dispatcher.setVolume(volume);
-                connection.play(broadcast);
-                
-                dispatcher.on('finish', () => console.log('finish'));
-                
-            });
-        
+                    currentConnection = connection;
+                    currentConnection.play(broadcast);
+                    
+                    dispatcher.on('finish', () => {
+                        console.log('phrase finish');
+                        dispatcher.end();
+
+                        if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
+                            if(voiceChannel != oldChannel) {
+                                oldChannel.join().then(connection => {
+                                    connection.play(guildsBroadcasts.get(msg.guild.id));
+                                    resume(msg.guild.id);
+                                });
+                                
+                            } else {
+                                currentConnection.play(guildsBroadcasts.get(msg.guild.id));
+                                resume(msg.guild.id);
+                            }
+                            
+                        } else {
+                            voiceChannel.leave();
+                        }
+
+                        broadcast.end();
+                        
+                        unlock(msg.guild.id);    
+                    });
+                    
+                });
+            
+            } else {
+                msg.channel.send("в канал зайди, дебил!");
+            }
         } else {
-            msg.channel.send("в канал зайди, дебил!");
+            msg.channel.send("отдохни я болтаю");
         }
 
         msg.delete();
     }
 
+    let guildsLocks = new Map();
+
     function auf(splitted, msg) {
-        if(msg.guild.member(msg.author).voice.channel != null && construct(msg)) {
-            if(unlocked) {
-                pause(msg.guild.id);
+        if(lock(msg.guild.id)) {
+            if(msg.guild.member(msg.author).voice.channel != null && construct(msg)) {
+                if(unlocked) {
+                    pause(msg.guild.id);
 
-                let oldChannel = guildsVoiceChannels.get(msg.guild.id);
+                    let oldChannel = guildsVoiceChannels.get(msg.guild.id);
 
-                
-                let voiceChannel = msg.guild.member(msg.author).voice.channel;
-                let currentConnection;
-                voiceChannel.join().then(connection => {
-                    let broadcast = bot.voice.createBroadcast();
-                    let text = aufFileLines[Math.floor(Math.random() * aufFileLines.length)];
-                    let volume = channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id) + 0.25;
-                    let dispatcher = tts.tts(broadcast, text + " АУФ");
+                    
+                    let voiceChannel = msg.guild.member(msg.author).voice.channel;
+                    let currentConnection;
+                    voiceChannel.join().then(connection => {
+                        let broadcast = bot.voice.createBroadcast();
+                        let text = aufFileLines[Math.floor(Math.random() * aufFileLines.length)];
+                        let volume = channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id) + 0.5;
+                        let dispatcher = tts.tts(broadcast, text + " АУФ");
 
-                    dispatcher.setVolume(volume);
-                    msg.channel.send('<@' + msg.author.id + '> ' + text + " АУФ :point_up:")
-                        .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
-                        
-                    currentConnection = connection;
-                    currentConnection.play(broadcast);
-               
-                    dispatcher.on('finish', () => {
-                        dispatcher = broadcast.play('auf.mp3');
-
-                        let volume = channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id);
                         dispatcher.setVolume(volume);
-
+                        msg.channel.send('<@' + msg.author.id + '> ' + text + " АУФ :point_up:")
+                            .then(sentMessage => sentMessage.delete({timeout: 30000})).catch(console.error);
+                            
+                        currentConnection = connection;
+                        currentConnection.play(broadcast);
+                
                         dispatcher.on('finish', () => {
-                            if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
-                                if(voiceChannel != oldChannel) {
-                                    oldChannel.join().then(connection => {
-                                        connection.play(guildsBroadcasts.get(msg.guild.id));
+                            dispatcher.end();
+                            dispatcher = broadcast.play('auf.mp3');
+
+                            let volume = channelsVolumes.get(msg.guild.member(msg.author).voice.channel.id);
+                            dispatcher.setVolume(volume);
+
+                            dispatcher.on('finish', () => {
+                                if(guildsBroadcasts.get(msg.guild.id) != undefined && oldChannel != undefined) {
+                                    if(voiceChannel != oldChannel) {
+                                        oldChannel.join().then(connection => {
+                                            connection.play(guildsBroadcasts.get(msg.guild.id));
+                                            resume(msg.guild.id);
+                                        });
+                                        
+                                    } else {
+                                        currentConnection.play(guildsBroadcasts.get(msg.guild.id));
                                         resume(msg.guild.id);
-                                    });
+                                    }
                                     
                                 } else {
-                                    currentConnection.play(guildsBroadcasts.get(msg.guild.id));
-                                    resume(msg.guild.id);
+                                    voiceChannel.leave();
                                 }
-                                
-                            } else {
-                                voiceChannel.leave();
-                            }
-
-                            broadcast.end();
+                                dispatcher.end();
+                                broadcast.end();
+                                unlock(msg.guild.id);
+                            });
                         });
                     });
-                });
+                }
+            } else {
+                msg.channel.send("в канал зайди, дебил!");
             }
         } else {
-            msg.channel.send("в канал зайди, дебил!");
+            msg.channel.send("отдохни я болтаю");
         }
         msg.delete();
         
@@ -347,12 +406,25 @@ const { Client } = require('pg');
         if(construct(msg)) {
             let channel = msg.guild.member(msg.author).voice.channel;
             if(splitted.length > 1) {
+                
                 channelsQueues.get(channel.id).unshift(splitted[1]);
                 console.log("song acquired");
-                nextSong(msg, channel);
+                
+                let currentBroadCast = guildsBroadcasts.get(msg.guild.id);
+                if(currentBroadCast != undefined) {
+                    msg.channel.send("трек добавлен первым в очередь...");
+                } else {
+                    nextSong(msg, channel);
+                }
             } else {
-                console.log("no song, restarting player...")
-                nextSong(msg, channel);
+                console.log("no song, restarting player...");
+
+                let currentBroadCast = guildsBroadcasts.get(msg.guild.id);
+                if(currentBroadCast == undefined) {
+                    nextSong(msg, channel);
+                } else {
+                    console.log("queue is clear");
+                }
             }
          } else {
              msg.channel.send("в канал зайди, дебил!");
@@ -374,7 +446,14 @@ const { Client } = require('pg');
             channel.join().then(connection => {
                 guildsVoiceChannels.set(msg.guild.id, channel);
 
-                let broadcast = guildsBroadcasts.get(msg.guild.id);
+                let broadcast;
+
+                if (!guildsBroadcasts.has(msg.guild.id)) {
+                    broadcast = bot.voice.createBroadcast();
+                    guildsBroadcasts.set(msg.guild.id, broadcast);
+                } else {
+                    broadcast = guildsBroadcasts.get(msg.guild.id);
+                }
 
                 if(broadcast != undefined)
                     broadcast.end();
@@ -431,6 +510,13 @@ const { Client } = require('pg');
         } else {
             msg.channel.send("конец очереди").then(sentMessage => sentMessage.delete({timeout: 10000}));
             guildsVoiceChannels.delete(msg.guild.id);
+            
+
+            let endedBroadcast = guildsBroadcasts.get(msg.guild.id);
+            if(endedBroadcast != undefined) {
+                endedBroadcast.end();
+                guildsBroadcasts.delete(msg.guild.id);
+            }
             channel.leave;
             console.log("playing next song: no songs");
         }
@@ -460,9 +546,18 @@ const { Client } = require('pg');
     function skipSong(splitted, msg) {
         if(construct(msg)) {
             let channel = msg.guild.member(msg.author).voice.channel;
-            guildsBroadcasts.get(msg.guild.id).end();
-            msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
-            nextSong(msg, channel);
+            let broadcast = guildsBroadcasts.get(msg.guild.id);
+            if(broadcast != undefined) {
+                if(channelsQueues.get(channel.id).length > 0) {
+                    nextSong(msg, channel);
+                    console.log("skipped to the next");
+                } else {
+                    broadcast.end();
+                    console.log("skipped to the end");
+                }
+                msg.reply("song skipped").then(sentMessage => sentMessage.delete({timeout: 10000}));
+                console.log("skip ended")
+            }
         } else {
             msg.reply("you are not connected to any voice channels").then(sentMessage => sentMessage.delete({timeout: 10000}));
         }
@@ -493,8 +588,10 @@ const { Client } = require('pg');
 
     function construct(msg) {
 
-        if (!guildsBroadcasts.has(msg.guild.id)) {
-            guildsBroadcasts.set(msg.guild.id, bot.voice.createBroadcast());
+        
+
+        if (!guildsLocks.has(msg.guild.id)) {
+            guildsLocks.set(msg.guild.id, false);
         }
 
         let channel = msg.guild.member(msg.author).voice.channel;
