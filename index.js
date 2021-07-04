@@ -136,7 +136,7 @@ const { Client } = require('pg');
                 break;
             case "!say":
             case "!s":
-            case "!сей":
+            case "!deb":
                 say(splitted, msg);
                 break;
 
@@ -619,14 +619,17 @@ const { Client } = require('pg');
             let channel = msg.guild.member(msg.author).voice.channel;
             if(splitted.length > 1) {
                 channelsVolumes.set(channel.id, splitted[1] / 100);
-                let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
-                if(dispatcher != null) {
-                    guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
+
+                if(guildsBroadcasts.get(msg.guild.id) != undefined) {
+                    let dispatcher = guildsBroadcasts.get(msg.guild.id).dispatcher;
+                    if(dispatcher != null) {
+                        guildsBroadcasts.get(msg.guild.id).dispatcher.setVolume(channelsVolumes.get(channel.id));
+                    }
                 }
-                msg.reply("volume for channel " + channel.name + " set to " + splitted[1])
+                msg.reply("volume for channel " + channel.name + " set to " + splitted[1] + "%")
                     .then(sentMessage => sentMessage.delete({timeout: 10000}));
             } else {
-                 msg.reply("volume for this channel is: " + channelsVolumes.get(channel.id) + " specify value to set!")
+                 msg.reply("volume for this channel is: " + channelsVolumes.get(channel.id) * 100 + "%, specify value to set!")
                     .then(sentMessage => sentMessage.delete({timeout: 10000}));
             }
         } else {
