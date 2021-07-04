@@ -646,7 +646,7 @@ const { Client } = require('pg');
         if(broadcast != undefined) {
             let dispatcher = broadcast.dispatcher;
             if(dispatcher != null) {
-                dispatcher.pause();
+                dispatcher.pause(true);
             }
         }
     }
