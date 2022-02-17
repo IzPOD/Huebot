@@ -2,7 +2,7 @@
   "name": "hue-bot",
   "version": "1.0.0",
   "engines": {
-    "node": "14.15.5"
+    "node": "16.x"
   },
   "main": "index.js",
   "scripts": {
@@ -16,13 +16,11 @@
     "@discordjs/rest": "^0.3.0",
     "@discordjs/voice": "^0.8.0",
     "async-mutex": "^0.3.2",
-    "discord-api-types": "^0.27.1",
     "discord-tts": "^1.2.1",
     "discord-ytdl-core": "^5.0.4",
     "discord.js": "^13.6.0",
     "dotenv": "^8.6.0",
     "libsodium-wrappers": "^0.7.9",
-    "node-opus": "^0.3.3",
     "pg": "^8.5.1",
     "ytdl-core": "^4.10.1",
     "ytpl": "^2.2.3"
