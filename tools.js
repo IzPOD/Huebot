@@ -1,7 +1,29 @@
 const { TextChannel, GuildChannel, MessageEmbed } = require("discord.js");
-var os = require('os');
+const os = require('os');
+var maintenance = false;
 
 module.exports = {
+    isMaintenance: function (callbackMsg, args) {
+        if (args[0].toLowerCase() == "!maintenance") {
+            maintenance = !maintenance;
+            
+            if (maintenance) {
+                callbackMsg.reply("bot is now in maintenance mode").then(callbackMsg.delete());
+                return true;
+            } else {
+                callbackMsg.reply("bot is no longer in maintenance mode").then(callbackMsg.delete());
+                return false;
+            }
+        } else {
+            if (maintenance) {
+                callbackMsg.reply("maintenance").then(callbackMsg.delete());
+                return true;
+            } else {
+                return false;
+            }
+        }
+    },
+
     onReady: function (bot, globalChannels) {
 
         console.log('bot online');
