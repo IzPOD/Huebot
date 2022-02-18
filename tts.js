@@ -1,19 +1,16 @@
 
-const discordTTS = require('discord-tts');
-const EventEmitter = require('events');
+import { getVoiceStream } from 'discord-tts';
+import EventEmitter from 'events';
 
 class TTS extends EventEmitter {}
 
 const handler = new TTS();
 
-module.exports = {
-    tts: function (broadcast, text) {
-        let dispatcher = broadcast.play(discordTTS.getVoiceStream(text,
-            'ru'));
-        return dispatcher;
-    },
-
-    say: function (text) {
-        return discordTTS.getVoiceStream(text);
-    }
+export function tts(broadcast, text) {
+    let dispatcher = broadcast.play(getVoiceStream(text,
+        'ru'));
+    return dispatcher;
+}
+export function say(text) {
+    return getVoiceStream(text);
 }

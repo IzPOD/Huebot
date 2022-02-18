@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node index.js"
   },
+  "type": "module",
   "author": "Huilo",
   "license": "ISC",
   "dependencies": {
@@ -21,7 +22,6 @@
     "discord.js": "^13.6.0",
     "dotenv": "^8.6.0",
     "libsodium-wrappers": "^0.7.9",
-    "pg": "^8.5.1",
     "ytdl-core": "^4.10.1",
     "ytpl": "^2.2.3"
   },

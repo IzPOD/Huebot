@@ -1,346 +1,315 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
-const { MessageActionRow, MessageButton, MessageEmbed } = require('discord.js');
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { MessageActionRow, MessageButton, MessageEmbed } from 'discord.js';
 
-const { BotPlayer } = require('../BotPlayer.js');
-const {
-    AudioPlayerStatus
-} = require('@discordjs/voice');
+import { BotPlayer } from '../BotPlayer.js';
+import { AudioPlayerStatus } from '@discordjs/voice';
 
-const updateDelay = 1000;
 
-const spacer = new Array(Math.round(54)).join("-");
+import ytpl from "ytpl";
+import ytdl from "ytdl-core";
 
 const players = new Map();
 
-module.exports = {
-	data: new SlashCommandBuilder()
-		.setName('player')
-		.setDescription('mp3 плеер'),
-	async execute(interaction) {
-        if (!checkInChannel(interaction)) {
-            await interaction.reply({content: 'Зайди в канал!'});
-            await sleep(3000);
-            await interaction.deleteReply();
-            return;
-        }
-        
-        let voiceChannel = interaction.member.voice.channel;
-        let player = players.get(interaction.guild.id);
-
-        if (player != null && player != undefined) {
-            if (player.voiceChannelId == null
-                || player.voiceChannelId == undefined
-                || player.voiceChannelId == voiceChannel.id
-                || player.audioPlayer == null 
-                || player.audioPlayer == undefined
-                || player.audioPlayer.state.status === AudioPlayerStatus.Idle
-                || player.audioPlayer.state.status === AudioPlayerStatus.Pause) {
-        
-                await player.mutex.runExclusive(async () => {
-                    player.active = false;
-                    await player.message.delete();
-                });
-            } else {
-                await interaction.reply({content: `<@${interaction.user.id}> плеер занят в другом канале`, ephemeral: true, fetchReply: true});
-                await sleep(3000);
-                await interaction.deleteReply();
-                return;
-            }
-        } else {
-            console.log("created new");
-            player = new BotPlayer();
-        }
-
-        let row = new MessageActionRow();
-        let prevButton = new MessageButton();
-        let playButton = new MessageButton();
-        let skipButton = new MessageButton();
-        let shuffleButton = new MessageButton();
-        let repeatQButton = new MessageButton();
-        
-        prevButton.setCustomId('prev')
-            .setStyle('SECONDARY')
-            .setEmoji('⏮️');
-
-        playButton.setCustomId('play')
-            .setStyle('SECONDARY')
-            .setEmoji('⏯️');
-
-        skipButton.setCustomId('skip')
-            .setStyle('SECONDARY')
-            .setEmoji('⏭️');
-
-        shuffleButton.setCustomId('shuffle')
-            .setStyle('SECONDARY')
-            .setEmoji('🔀');
-
-        repeatQButton.setCustomId('repeatQ')
-            .setStyle('SECONDARY')
-            .setEmoji('🔁');
-            
-        row.addComponents(prevButton, playButton, skipButton, shuffleButton, repeatQButton);
-
-        let row2 = new MessageActionRow();
-        let plusButton = new MessageButton();
-        let minusButton = new MessageButton();
-        let closeButton = new MessageButton();
-        let repeatButton = new MessageButton();
-        let linkButton = new MessageButton();
-        let unloadButton = new MessageButton();
-        
-        repeatButton.setCustomId('repeat')
-            .setStyle('SECONDARY')
-            .setEmoji('🔄');
-
-        linkButton.setCustomId('link')
-            .setStyle('SECONDARY')
-            .setEmoji('↗️');
-
-        plusButton.setCustomId('plus')
-            .setStyle('SECONDARY')
-            .setEmoji('🔊');
-
-        minusButton.setCustomId('minus')
-            .setStyle('SECONDARY')
-            .setEmoji('🔉');
-
-        unloadButton.setCustomId('unload')
-            .setStyle('SECONDARY')
-            .setEmoji('⏏️');
-
-        closeButton.setCustomId('closePlayer')
-            .setStyle('DANGER')
-            .setEmoji('✖️');
-
-        row2.addComponents(repeatButton, linkButton, unloadButton, minusButton, plusButton);
-
-        let playerEmbed = new MessageEmbed()
-	        .setColor('#ff0000')
-	        .setTitle(spacer + '\n#>\n' + spacer);
-
-        player.embed = playerEmbed;
-        if(!await player.connect(voiceChannel)) {
-            await interaction.reply({content: ""});
-
-            //ERROR
-        }
-
-		await interaction.reply({embeds: [playerEmbed], components: [row, row2], fetchReply: true})
-            .then((message) => {
-                player.id = message.id;
-                player.message = message;
-                player.interaction = interaction;
-                player.active = true;
-                players.set(interaction.guild.id, player);
-                updatePlayer(player);
-                
-                console.log("attached by command");
-            });
-	},
-
-    close: function(interaction) {
-        let player = players.get(interaction.guild.id);
-        if (player != null && player != undefined && player.id == interaction.message.id) {
-            player.active = false;
-            console.log("player stopped");
-            //STOP MUSIC
-        }
-
-        deletePlayer(interaction);
-    },
-
-    addTrack: async function(interaction, link) {
-        let player = players.get(interaction.guild.id);
-
-        await player.mutex.runExclusive(async () => {
-            player.addTrack(link);
-        });
-    },
-
-    onUnload: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-
-        let player = players.get(interaction.guild.id);
-        player.repeat = false;
-        player.repeatQ = true;
-        player.shuffled = false;
-
-        await player.mutex.runExclusive(async () => {
-            player.list = new Array();
-            player.queue = new Array();
-        });
-        
-        if (player.audioPlayer.state.status === AudioPlayerStatus.Playing 
-            || player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-            player.audioPlayer.stop();
-        }
-
-        console.log("unloaded");
-
-        interaction.update({});
-    },
-
-    onRepeat: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-        
-        let player = players.get(interaction.guild.id);
-        player.repeat = !player.repeat;
-
-        if (player.repeat) {
-            await player.mutex.runExclusive(async () => {
-                if (player.audioPlayer.state.status === AudioPlayerStatus.Playing 
-                    || player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-            
-                    if (player.trackLink != null && player.trackLink != undefined) {
-                        player.queue.unshift(player.trackLink);
-                    }
-                }
-            });
-        }
-
-        interaction.update({});
-    },
-
-    onRepeatQ: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-        
-        let player = players.get(interaction.guild.id);
-        player.repeatQ = !player.repeatQ;
-
-        interaction.update({});
-    },
-
-    onPrev: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-
-        interaction.reply({ content: `<@${interaction.user.id}> when I code it`, ephemeral: true, fetchReply: true});
-    },
-
-    onPlay: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-        
-        let player = players.get(interaction.guild.id);
-        let voiceChannel = interaction.member.voice.channel;
-
-        if(!await player.connect(voiceChannel)) {
-            interaction.reply({ content: `<@${interaction.user.id}> не могу подключиться!`, ephemeral: true, fetchReply: true});
-            return;
-        }
-
-        if(player.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-            player.play();
-        } else if (player.audioPlayer.state.status === AudioPlayerStatus.Playing) {
-            player.audioPlayer.pause();
-        } else if (player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-            player.audioPlayer.unpause();
-        }
-
-        interaction.update({});
-    },
-
-    onShuffle: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-        
-        let player = players.get(interaction.guild.id);
-        let voiceChannel = interaction.member.voice.channel;
-
-        if(!await player.connect(voiceChannel)) {
-            interaction.reply({ content: `<@${interaction.user.id}> не могу подключиться!`, ephemeral: true, fetchReply: true});
-            return;
-        }
-
-        if (player.shuffled) {
-            player.shuffled = false;
-            interaction.update({});
-        } else {
-            await interaction.deferReply({ephemeral: true});
-            await player.mutex.runExclusive(async () => {
-                if (player.audioPlayer.state.status === AudioPlayerStatus.Playing 
-                    || player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-                
-                    if (player.trackLink != null && player.trackLink != undefined) {
-                        player.queue.unshift(player.trackLink);
-                    }
-                }
-
-                player.shuffle(player.queue);
-            });
-
-            player.shuffled = true;
-            
-            interaction.editReply({ content: `<@${interaction.user.id}> shuffle!`, ephemeral: true, fetchReply: true});
-
-            if (player.audioPlayer.state.status === AudioPlayerStatus.Playing 
-                || player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-                player.audioPlayer.stop();
-                console.log("restarted after shuffle");
-            } else if (player.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-                console.log("started after shuffle");
-                player.play();
-            }
-        }
-    },
-
-    onVolume: async function(interaction, volumeChange) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-
-        let player = players.get(interaction.guild.id);
-
-        player.volume = Math.min(1, Math.max(0, player.volume + volumeChange));
-        if (player.res != null && player.res != undefined) {
-            player.res.volume.setVolume(player.volume);
-        }
-
-        interaction.update({});
-    },
-
-    onSkip: async function(interaction) {
-        if(!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction)) 
-            return;
-
-        let player = players.get(interaction.guild.id);
-        let voiceChannel = interaction.member.voice.channel;
-        
-        if(!await player.connect(voiceChannel)) {
-            interaction.reply({ content: `<@${interaction.user.id}> не могу подключиться!`, ephemeral: true, fetchReply: true});
-            return;
-        }
-
-        if(player.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-            player.play();
-        } else if (player.audioPlayer.state.status === AudioPlayerStatus.Playing) {
-            player.audioPlayer.stop();
-        } else if (player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-            player.audioPlayer.stop();
-        }
-        
-        interaction.update({});
-    },
-
-    onLink: async function(interaction) {
-        ///donot attach just seek for link if(!attachPlayer(interaction)) 
-        if(!roughCheck(interaction))
-            return;
-
-        let player = players.get(interaction.guild.id);
-        if (player.trackLink == null || player.trackLink == undefined) {
-            console.log("no link");
-            await interaction.reply({ content: `<@${interaction.user.id}> плеер ещё не запущен!`, ephemeral: true, fetchReply: true});
-            return;
-        } 
-
-        console.log(`link ${player.trackLink}`);
-        await interaction.reply({ content: `<@${interaction.user.id}> ${player.trackLink}`, ephemeral: true, fetchReply: true});
+export const updateDelay = 2000;
+export const data = new SlashCommandBuilder()
+    .setName('player')
+    .setDescription('mp3 плеер')
+    .addStringOption(option => option.setName('link')
+        .setDescription('Youtube link')
+        .setRequired(false));
+export async function execute(interaction) {
+    if (!checkInChannel(interaction)) {
+        return;
     }
+
+    let voiceChannel = interaction.member.voice.channel;
+    let player = players.get(interaction.guild.id);
+
+    if (player != null && player != undefined) {
+        if (player.voiceChannelId == null
+            || player.voiceChannelId == undefined
+            || player.voiceChannelId == voiceChannel.id
+            || player.audioPlayer == null
+            || player.audioPlayer == undefined
+            || player.audioPlayer.state.status === AudioPlayerStatus.Idle
+            || player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
+            
+            player.active = false;
+        } else {
+            await interaction.reply({ content: `<@${interaction.user.id}> плеер занят в другом канале`, ephemeral: true, fetchReply: true });
+            return;
+        }
+    } else {
+        console.log("created new");
+        player = new BotPlayer();
+    }
+
+    let row = new MessageActionRow();
+    let prevButton = new MessageButton();
+    let playButton = new MessageButton();
+    let skipButton = new MessageButton();
+    let shuffleButton = new MessageButton();
+    let repeatQButton = new MessageButton();
+
+    prevButton.setCustomId('prev')
+        .setStyle('SECONDARY')
+        .setEmoji('⏮️');
+
+    playButton.setCustomId('play')
+        .setStyle('SECONDARY')
+        .setEmoji('⏯️');
+
+    skipButton.setCustomId('skip')
+        .setStyle('SECONDARY')
+        .setEmoji('⏭️');
+
+    shuffleButton.setCustomId('shuffle')
+        .setStyle('SECONDARY')
+        .setEmoji('🔀');
+
+    repeatQButton.setCustomId('repeatQ')
+        .setStyle('SECONDARY')
+        .setEmoji('🔁');
+
+    row.addComponents(prevButton, playButton, skipButton, shuffleButton, repeatQButton);
+
+    let row2 = new MessageActionRow();
+    let plusButton = new MessageButton();
+    let minusButton = new MessageButton();
+    let closeButton = new MessageButton();
+    let repeatButton = new MessageButton();
+    let linkButton = new MessageButton();
+    let unloadButton = new MessageButton();
+
+    repeatButton.setCustomId('repeat')
+        .setStyle('SECONDARY')
+        .setEmoji('🔄');
+
+    linkButton.setCustomId('link')
+        .setStyle('SECONDARY')
+        .setEmoji('↗️');
+
+    plusButton.setCustomId('plus')
+        .setStyle('SECONDARY')
+        .setEmoji('🔊');
+
+    minusButton.setCustomId('minus')
+        .setStyle('SECONDARY')
+        .setEmoji('🔉');
+
+    unloadButton.setCustomId('unload')
+        .setStyle('SECONDARY')
+        .setEmoji('⏏️');
+
+    closeButton.setCustomId('closePlayer')
+        .setStyle('DANGER')
+        .setEmoji('✖️');
+
+    row2.addComponents(repeatButton, linkButton, unloadButton, minusButton, plusButton);
+
+    await interaction.deferReply();
+
+    let playerEmbed = new MessageEmbed()
+        .setColor('#ff0000')
+        .setTitle('|\n#>\n|');
+
+    player.embed = playerEmbed;
+    players.set(interaction.guild.id, player);
+
+    if (!connect(interaction, voiceChannel)) {
+        return;
+    }
+
+    await interaction.editReply({embeds: [playerEmbed], components: [row, row2], ephemeral: false, fetchReply: true })
+        .then((message) => {
+            player.id = message.id;
+            player.message = message;
+            player.interaction = interaction;
+            player.updatePlayer(player);
+
+            console.log("new player created");
+
+            let link = interaction.options.getString("link");
+            if (link != null || link != undefined) {
+                onAddTrack(interaction, link, false);
+            }
+    });
 }
 
+// Call to close player
+export async function onClose(interaction) {
+    let player = players.get(interaction.guild.id);
+    if (player != null && player != undefined && player.id == interaction.message.id) {
+        player.active = false;
+        console.log("player destroyed");
+        //STOP MUSIC
+    }
+
+    deletePlayer(interaction);
+}
+
+// Call to clear queue
+export async function onUnload(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    let player = players.get(interaction.guild.id);
+
+    await player.queue.unload();
+    player.audioPlayer.stop();
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("unloaded");
+}
+
+// Call to set track repeat
+export async function onRepeat(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction)|| !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    let player = players.get(interaction.guild.id);
+
+    player.queue.repeatTrack = !player.queue.repeatTrack;
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("repeat toggled");
+}
+
+// Call to set queue repeat
+export async function onRepeatQ(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    let player = players.get(interaction.guild.id);
+
+    player.queue.repeat = !player.queue.repeat;
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("repeatQ toggled");
+}
+
+// Call to rewind or play previous track;
+export async function onPrev(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    interaction.reply({ content: `<@${interaction.user.id}> when I code it`, ephemeral: true, fetchReply: true });
+    unlock(interaction);
+    console.log("rewinded");
+}
+
+// Call to toggle play state
+export async function onPlay(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+    
+    let player = players.get(interaction.guild.id);
+    let voiceChannel = interaction.member.voice.channel;
+
+    if (!await connect(interaction, voiceChannel)) {
+        return;
+    }
+
+    if (player.audioPlayer.state.status === AudioPlayerStatus.Idle) {
+        player.play();
+    } else if (player.audioPlayer.state.status === AudioPlayerStatus.Playing) {
+        player.audioPlayer.pause();
+    } else if (player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
+        player.audioPlayer.unpause();
+    }
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("play toggled");
+}
+
+// Call to shuffle
+export async function onShuffle(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    let player = players.get(interaction.guild.id);
+    let voiceChannel = interaction.member.voice.channel;
+
+    if (!await connect(interaction, voiceChannel)) {
+        return;
+    }
+
+    await player.queue.shuffle();
+    player.play();
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("shuffled");
+}
+
+// Call to set volume
+export async function onVolume(interaction, volumeChange) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    let player = players.get(interaction.guild.id);
+
+    player.volume = Math.min(1, Math.max(0, player.volume + volumeChange));
+    if (player.res != null && player.res != undefined) {
+        player.res.volume.setVolume(player.volume);
+    }
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("volume changed");
+}
+
+// Call to skip track
+export async function onSkip(interaction) {
+    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+        return;
+
+    let player = players.get(interaction.guild.id);
+    let voiceChannel = interaction.member.voice.channel;
+
+    if (!await connect(interaction, voiceChannel)) {
+        return;
+    }
+    
+    if (player.audioPlayer.state.status === AudioPlayerStatus.Idle) {
+        player.play();
+    } else if (player.audioPlayer.state.status === AudioPlayerStatus.Playing) {
+        player.audioPlayer.stop();
+    } else if (player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
+        player.audioPlayer.stop();
+    }
+
+    interaction.update({});
+    unlock(interaction);
+    console.log("skiped");
+}
+
+// Call to get link
+export async function onLink(interaction) {
+    if (!roughCheck(interaction) || !lock(interaction))
+        return;
+
+    await interaction.deferReply({ephemeral: true});
+
+    let player = players.get(interaction.guild.id);
+    let trackLink = await player.queue.getCurrentLink();
+
+    if (trackLink == null || trackLink == undefined) {
+        console.log("no link");
+        await interaction.editReply({ content: `<@${interaction.user.id}> плеер ещё не запущен!`, ephemeral: true, fetchReply: true });
+        return;
+    }
+
+    await interaction.editReply({ content: `<@${interaction.user.id}> ${trackLink}`, ephemeral: true, fetchReply: true });
+    unlock(interaction);
+    console.log(`requested link ${trackLink}`);
+}
+
+// Checks is initiator in the same channel with active player
 function chceckPerm(interaction) {
     let player = players.get(interaction.guild.id);
 
@@ -352,24 +321,24 @@ function chceckPerm(interaction) {
     return true;
 }
 
+// Checks if player exists
 function roughCheck(interaction) {
     let player = players.get(interaction.guild.id);
     if (player == null || player == undefined || player.id != interaction.message.id) {
         console.log("outdated player");
-        interaction.deferUpdate();
-        interaction.deleteReply();
+        interaction.message.delete();
+        interaction.reply({ content: `<@${interaction.user.id}> удален старый плеер!`, ephemeral: true, fetchReply: true});
         return false;
     }
 
     return true;
 }
 
+// Checks is player exists or can it be attached to interacted message
 function attachPlayer(interaction) {
     let player = players.get(interaction.guild.id);
 
     if (player == null || player == undefined) {
-        console.log("attaching player");
-
         player = new BotPlayer();
         player.createPlayer();
         let message = interaction.message;
@@ -379,55 +348,21 @@ function attachPlayer(interaction) {
         player.embed = message.embeds[0];
         player.message = message;
         player.interaction = interaction;
-        player.active = true;
-        updatePlayer(player);
+        player.updatePlayer();
 
+        console.log("player attached");
         return true;
     } else if (player.id != interaction.message.id) {
+        interaction.message.delete();
+        interaction.reply({ content: `<@${interaction.user.id}> удален старый плеер!`, ephemeral: true, fetchReply: true});
         console.log("outdated player");
-        interaction.deferUpdate();
-        interaction.deleteReply();
         return false;
     }
 
     return true;
 }
 
-async function updatePlayer(player) {
-    console.log("entered update loop: " + player.active);
-    while(player.active)
-    {
-        await sleep(updateDelay);
-        await player.mutex.runExclusive(async () => {
-            if (!player.active) {
-                console.log("exited update loop");
-                return;
-            }
-            
-            if(player.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-                let str = player.getText() + "\n" + player.getStats();
-                player.embed.setTitle(spacer + "\n#>   " + str + "\n");
-                player.embed.setColor('#ff0000');
-            } else if (player.audioPlayer.state.status === AudioPlayerStatus.Playing) {
-                let str = player.getText() + "\n" + player.getStats();
-                player.embed.setTitle(spacer + "\n#>   " + str + "\n");
-                player.embed.setColor('#00ff00');
-            } else if (player.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-                player.embed.setTitle(spacer + "\n#>   PAUSED\n" + player.getStats());
-                player.embed.setColor('#999900');
-            }
-        
-            await player.message.edit({embeds: [player.embed]});
-        });
-    }
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-}
-
+// deleteplayer
 async function deletePlayer(interaction) {
     try {
         let player = players.get(interaction.guild.id);
@@ -436,29 +371,104 @@ async function deletePlayer(interaction) {
             await player.mutex.runExclusive(async () => {
                 console.log("deleted existing");
                 player.active = false;
-                await interaction.deferUpdate();
-                await interaction.deleteReply();
             });
         } else {
             console.log("deleted unexisting");
-            await interaction.deferUpdate();
-            await interaction.deleteReply();
         }
     } catch (e) {
         console.log(e);
-        interaction.channel.send(`<@${interaction.user.id}> + ${e}`);
+        interaction.channel.send(`${e}`);
     }
 }
 
+// checks is user in the voiceChannel
 function checkInChannel(interaction) {
-    voiceChannel = interaction.member.voice.channel;
+    let voiceChannel = interaction.member.voice.channel;
 
     if (voiceChannel == null || voiceChannel == undefined) {
         console.log("not in channel");
-        
         interaction.reply({ content: `<@${interaction.user.id}> кажется ты не в канале!`, ephemeral: true, fetchReply: true});
         return false;
     }
 
     return true;
+}
+
+// connect wrapper
+async function connect(interaction, voiceChannel) {
+    let player = players.get(interaction.guild.id);
+
+    let result = await player.connect(voiceChannel);
+    if (!result) {
+        interaction.reply({ content: `<@${interaction.user.id}> не могу подключиться!`, ephemeral: true, fetchReply: true });
+    }
+
+    return result;
+}
+
+// addTrack wrapper
+export async function onAddTrack(interaction, link, reply = true) {
+    let player = players.get(interaction.guild.id);
+    if (player == null || player == undefined) {
+        player = new BotPlayer();
+        players.set(interaction.guild.id, player);
+    }
+
+    if (!lock(interaction))
+        return;
+
+    if(reply)
+        await interaction.deferReply({ ephemeral: true });
+    
+
+    if(ytdl.validateURL(link)) {
+        console.log("adding link");
+        player.addTrack(link);
+        if(reply)
+            interaction.editReply(`<@${interaction.user.id}> track added`, { ephemeral: true, fetchReply: true });
+    } else {
+        try {
+            console.log("adding playlist");
+            let result = await ytpl(link, { limit: 500 });
+
+            result.items.forEach(item => {
+                player.addTrack(item.shortUrl);
+            });
+
+            if(reply)
+                interaction.editReply(`<@${interaction.user.id}> tracks added: ` + result.estimatedItemCount, { ephemeral: true, fetchReply: true });
+        } catch (e) {
+            console.log(`Bad url: ` + link);
+            if(reply)
+                interaction.editReply(`<@${interaction.user.id}> Bad url`, { fephemeral: true, fetchReply: true }); 
+        }
+    }
+        
+    unlock(interaction);
+}
+
+function lock(interaction) {
+    let player = players.get(interaction.guild.id);
+    if (player != null && player != undefined && !player.lock) {
+        player.lock = true;
+        return true;
+    } else {
+        console.log("locked player does not exist");
+    }
+
+    interaction.reply({ content: `<@${interaction.user.id}> подожди секунду!`, ephemeral: true, fetchReply: true}); // "please wait" reply maybe?
+    console.log("interacted player locked");
+    return false;
+}
+
+function unlock(interaction) {
+    let player = players.get(interaction.guild.id);
+    if (player != null && player != undefined) {
+        if (!player.lock) {
+            console.log("there is something wrong I can feel it");
+        }
+        player.lock = false;
+    } else {
+        console.log("unlocked player does not exist");
+    }
 }

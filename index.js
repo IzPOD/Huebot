@@ -1,85 +1,49 @@
 "use strict"
 
-const dotenv = require('dotenv');
-dotenv.config();
+import { config } from 'dotenv';
+import { Client } from 'discord.js';
+import { Intents, Collection } from 'discord.js';
+import { readdirSync } from 'fs';
+import { poll, restart, close } from './commands/strawpoll.js';
+import { onClose, onPlay, onSkip, onPrev, onVolume, onLink, onShuffle, onRepeatQ, onRepeat, onUnload } from './commands/player.js';
 
-const Discord = require('discord.js');
+process.setMaxListeners(100);
+config();
 
-const { Intents, Collection } = require('discord.js');
+const token = process.env.TOKEN;
+export const updateDelay = parseInt(process.env.DELAY, 10);
+export const shiftAmount = parseInt(process.env.SHIFT, 10);
+export const name = process.env.NAME;
 
-const bot = new Discord.Client(
+const bot = new Client(
     {
-    intents: [
-          Intents.FLAGS.GUILDS, 
-          Intents.FLAGS.GUILD_MEMBERS,
-          Intents.FLAGS.GUILD_EMOJIS_AND_STICKERS,
-          Intents.FLAGS.GUILD_INTEGRATIONS,
-          Intents.FLAGS.GUILD_WEBHOOKS,
-          Intents.FLAGS.GUILD_INVITES,
-          Intents.FLAGS.GUILD_VOICE_STATES,
-          Intents.FLAGS.GUILD_PRESENCES,
-          Intents.FLAGS.GUILD_MESSAGES,
-          Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-          Intents.FLAGS.GUILD_MESSAGE_TYPING,
-          Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
-          Intents.FLAGS.DIRECT_MESSAGE_TYPING,
-          Intents.FLAGS.DIRECT_MESSAGES,
-          Intents.FLAGS.GUILD_SCHEDULED_EVENTS
-      ]
+        intents: [
+            Intents.FLAGS.GUILDS, 
+            Intents.FLAGS.GUILD_MEMBERS,
+            Intents.FLAGS.GUILD_VOICE_STATES,
+        ]
     }
 );
 
 bot.setMaxListeners(100);
 bot.commands = new Collection();
 
-//require('./deploy-commands');
-
-const fs = require('fs');
-const commandFiles = fs.readdirSync('././commands').filter((file) => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-	const command = require(`././commands/${file}`);
-	// Set a new item in the Collection
-	// With the key as the command name and the value as the exported module
-	bot.commands.set(command.data.name, command);
-}
-
-process.setMaxListeners(100);
-//const readline = require('readline');
-
-const strawpoll = require('./commands/strawpoll.js');
-const player = require('./commands/player.js');
-
-const token = process.env.TOKEN;
-
-//const rl = readline.createInterface({
-//    input: fs.createReadStream('auf')
-//});
-
-//var aufFileLines = new Array();
-//rl.on('line', (line) => {
-//    aufFileLines.push(line);
-//});
-
-//rl.on('close', () => {unlocked = true});
-
-bot.on('ready', () => {
+bot.on('ready', async () => {
     //loadPlaylistsData();
     try {
-        //client = new Client({
-        //    connectionString: process.env.DATABASE_URL,
-        //    ssl: {
-        //      rejectUnauthorized: false
-        //    }
-        // });
-        //client.connect();
+        const commandFiles = readdirSync('././commands').filter((file) => file.endsWith('.js'));
+
+        for (const file of commandFiles) {
+	        const command = await import(`././commands/${file}`);
+	        // Set a new item in the Collection
+	        // With the key as the command name and the value as the exported module
+	        bot.commands.set(command.data.name, command);
+        }
     } catch (e) {
         console.log(e);
     }
 
     console.log("online");
-
-    //tools.onReady(bot, musicChannels);
 });
 
 bot.on('interactionCreate', async (interaction) => {
@@ -87,8 +51,8 @@ bot.on('interactionCreate', async (interaction) => {
         console.log(`interaction:  ${interaction.user.tag}`);
         const command = bot.commands.get(interaction.commandName);
 
-        if (!command) return;
-
+        if (!command) 
+            return;
 	    try {
 	        await command.execute(interaction);
 	    } catch (error) {
@@ -97,33 +61,33 @@ bot.on('interactionCreate', async (interaction) => {
 	    }
     } else if (interaction.isButton()) {
         if (interaction.customId == 'poll') {
-            strawpoll.poll(interaction);
+            poll(interaction);
         } else if (interaction.customId == 'restart') {
-            strawpoll.restart(interaction);
+            restart(interaction);
         } else if (interaction.customId == 'closePoll') {
-            strawpoll.close(interaction);
+            close(interaction);
         } else if (interaction.customId == 'closePlayer') {
-            player.close(interaction);
+            onClose(interaction);
         } else if (interaction.customId == 'play') {
-            player.onPlay(interaction);
+            onPlay(interaction);
         } else if (interaction.customId == 'skip') {
-            player.onSkip(interaction);
+            onSkip(interaction);
         } else if (interaction.customId == 'prev') {
-            player.onPrev(interaction);
+            onPrev(interaction);
         } else if (interaction.customId == 'plus') {
-            player.onVolume(interaction, 0.1);
+            onVolume(interaction, 0.1);
         } else if (interaction.customId == 'minus') {
-            player.onVolume(interaction, -0.1);
+            onVolume(interaction, -0.1);
         } else if (interaction.customId == 'link') {
-            player.onLink(interaction);
+            onLink(interaction);
         } else if (interaction.customId == 'shuffle') {
-            player.onShuffle(interaction);
+            onShuffle(interaction);
         } else if (interaction.customId == 'repeatQ') {
-            player.onRepeatQ(interaction);
+            onRepeatQ(interaction);
         } else if (interaction.customId == 'repeat') {
-            player.onRepeat(interaction);
+            onRepeat(interaction);
         } else if (interaction.customId == 'unload') {
-            player.onUnload(interaction);
+            onUnload(interaction);
         }
     }
 });
@@ -136,12 +100,6 @@ bot.on('messageCreate', (msg) => {
     }
 });
     
-bot.on('error', console.warn);
+bot.on('error', error => console.log(error));
 
 bot.login(token);
-
-module.exports = {
-    newBroadcast: function() {
-
-    }
-}
