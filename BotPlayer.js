@@ -324,21 +324,21 @@ export class BotPlayer {
             }
             
             await this.message.edit({embeds: [this.embed]}).catch((error) => {
-                console.log(error); //probably the message was deleted by admin
+                console.log(error); //probably the message was deleted by admin or timed-out
                 this.active = false;
                 this.id = null;
                         
-                if(this.connection != null) {
-                    this.connection.destroy();
-                    this.connection = null;
-                }
+                //if(this.connection != null) {
+                //    this.connection.destroy();
+                //    this.connection = null;
+                //}
 
-                if(this.audioPlayer != null) {
-                    this.audioPlayer.stop();
-                    this.audioPlayer = null
-                }
+                //if(this.audioPlayer != null) {
+                //    this.audioPlayer.stop();
+                //    this.audioPlayer = null
+                //}
 
-                this.queue.unload();
+                //this.queue.unload();
             });
         }
     }
