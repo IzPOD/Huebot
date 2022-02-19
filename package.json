@@ -5,9 +5,6 @@
     "node": "16.x"
   },
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "type": "module",
   "author": "Huilo",
   "license": "ISC",
