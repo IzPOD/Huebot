@@ -47,8 +47,8 @@ bot.on('ready', async () => {
 });
 
 bot.on('interactionCreate', async (interaction) => {
+    console.log(`interaction:  ${interaction.user.tag}`);
     if (interaction.isCommand()) {
-        console.log(`interaction:  ${interaction.user.tag}`);
         const command = bot.commands.get(interaction.commandName);
 
         if (!command) 

@@ -7,6 +7,7 @@ import { AudioPlayerStatus } from '@discordjs/voice';
 
 import ytpl from "ytpl";
 import ytdl from "ytdl-core";
+import { Queue } from '../Queue.js';
 
 const players = new Map();
 
@@ -117,6 +118,7 @@ export async function execute(interaction) {
     players.set(interaction.guild.id, player);
 
     if (!connect(interaction, voiceChannel)) {
+        unlock(interaction);
         return;
     }
 
@@ -124,7 +126,6 @@ export async function execute(interaction) {
         .then((message) => {
             player.id = message.id;
             player.message = message;
-            player.interaction = interaction;
             player.updatePlayer(player);
 
             console.log("new player created");
@@ -150,7 +151,7 @@ export async function onClose(interaction) {
 
 // Call to clear queue
 export async function onUnload(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction))
         return;
 
     let player = players.get(interaction.guild.id);
@@ -165,7 +166,7 @@ export async function onUnload(interaction) {
 
 // Call to set track repeat
 export async function onRepeat(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction)|| !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction))
         return;
 
     let player = players.get(interaction.guild.id);
@@ -179,7 +180,7 @@ export async function onRepeat(interaction) {
 
 // Call to set queue repeat
 export async function onRepeatQ(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction))
         return;
 
     let player = players.get(interaction.guild.id);
@@ -193,23 +194,35 @@ export async function onRepeatQ(interaction) {
 
 // Call to rewind or play previous track;
 export async function onPrev(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction))
         return;
 
-    interaction.reply({ content: `<@${interaction.user.id}> when I code it`, ephemeral: true, fetchReply: true });
+    let voiceChannel = interaction.member.voice.channel;
+    let player = players.get(interaction.guild.id);
+
+    if (!await connect(interaction, voiceChannel)) {
+        unlock(interaction);
+        return;
+    }
+
+    interaction.deferReply();
+    await player.rewind();
+
+    interaction.deleteReply();
     unlock(interaction);
     console.log("rewinded");
 }
 
 // Call to toggle play state
 export async function onPlay(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction))
         return;
     
     let player = players.get(interaction.guild.id);
     let voiceChannel = interaction.member.voice.channel;
 
     if (!await connect(interaction, voiceChannel)) {
+        unlock(interaction);
         return;
     }
 
@@ -228,13 +241,14 @@ export async function onPlay(interaction) {
 
 // Call to shuffle
 export async function onShuffle(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction) )
         return;
 
     let player = players.get(interaction.guild.id);
     let voiceChannel = interaction.member.voice.channel;
 
     if (!await connect(interaction, voiceChannel)) {
+        unlock(interaction);
         return;
     }
 
@@ -248,7 +262,7 @@ export async function onShuffle(interaction) {
 
 // Call to set volume
 export async function onVolume(interaction, volumeChange) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction) )
         return;
 
     let player = players.get(interaction.guild.id);
@@ -265,13 +279,14 @@ export async function onVolume(interaction, volumeChange) {
 
 // Call to skip track
 export async function onSkip(interaction) {
-    if (!attachPlayer(interaction) || !lock(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction))
+    if (!attachPlayer(interaction) || !checkInChannel(interaction) || !chceckPerm(interaction) || !lock(interaction))
         return;
 
     let player = players.get(interaction.guild.id);
     let voiceChannel = interaction.member.voice.channel;
 
     if (!await connect(interaction, voiceChannel)) {
+        unlock(interaction);
         return;
     }
     
@@ -301,6 +316,7 @@ export async function onLink(interaction) {
     if (trackLink == null || trackLink == undefined) {
         console.log("no link");
         await interaction.editReply({ content: `<@${interaction.user.id}> плеер ещё не запущен!`, ephemeral: true, fetchReply: true });
+        unlock(interaction);
         return;
     }
 
@@ -309,11 +325,21 @@ export async function onLink(interaction) {
     console.log(`requested link ${trackLink}`);
 }
 
+export async function getQueue(interaction) {
+    let player = players.get(interaction.guild.id);
+    if (player != null && player != undefined) {
+        return await player.queue.getQueue();
+    }
+
+    return null;
+}
+
 // Checks is initiator in the same channel with active player
 function chceckPerm(interaction) {
     let player = players.get(interaction.guild.id);
 
-    if(player.voiceChannelId != null && player.voiceChannelId != interaction.member.voice.channel) {
+    if(interaction.member.voice.channel != player.voiceChannelId
+        && (player.audioPlayer != null && player.audioPlayer.state.status === AudioPlayerStatus.Playing)) {
         interaction.reply({ content: `<@${interaction.user.id}> не мешай!`, ephemeral: true, fetchReply: true});
         return false;
     }
@@ -337,23 +363,27 @@ function roughCheck(interaction) {
 // Checks is player exists or can it be attached to interacted message
 function attachPlayer(interaction) {
     let player = players.get(interaction.guild.id);
+    let queue = new Queue();
+    if (player != null) {
+        queue = player.queue;
+    }
 
-    if (player == null || player == undefined) {
+    if (player == null || player == undefined || player.id == null) {
         player = new BotPlayer();
         player.createPlayer();
         let message = interaction.message;
         players.set(interaction.guild.id, player);
 
+        player.queue = queue;
         player.id = message.id;
         player.embed = message.embeds[0];
         player.message = message;
-        player.interaction = interaction;
         player.updatePlayer();
 
         console.log("player attached");
         return true;
     } else if (player.id != interaction.message.id) {
-        interaction.message.delete();
+        interaction.message.delete().catch(error => console.log(error)); // TODO: this is async clicking multiple time throws error;
         interaction.reply({ content: `<@${interaction.user.id}> удален старый плеер!`, ephemeral: true, fetchReply: true});
         console.log("outdated player");
         return false;
@@ -450,6 +480,7 @@ export async function onAddTrack(interaction, link, reply = true) {
 function lock(interaction) {
     let player = players.get(interaction.guild.id);
     if (player != null && player != undefined && !player.lock) {
+        console.log("player locked");
         player.lock = true;
         return true;
     } else {
@@ -457,7 +488,7 @@ function lock(interaction) {
     }
 
     interaction.reply({ content: `<@${interaction.user.id}> подожди секунду!`, ephemeral: true, fetchReply: true}); // "please wait" reply maybe?
-    console.log("interacted player locked");
+    console.log("player already locked");
     return false;
 }
 

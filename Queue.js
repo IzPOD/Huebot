@@ -29,10 +29,12 @@ export class Queue {
         });
     }
 
-    async rewind() {
+    async rewind(index) {
         return this.mutex.runExclusive(() => {
-            if(this.queueIndex > 0) {
-                this.queueIndex--;
+            if(this.queueIndex - index >= -1) {
+                this.queueIndex -= index;
+            } else {
+                this.queueIndex = -1;
             }
         });
     }
@@ -45,18 +47,18 @@ export class Queue {
 
             if (this.queue.length > this.queueIndex) {
                 //GET NEXT
-                console.log("next");
+                console.log("Queue: next");
                 return this.list[this.queue[this.queueIndex]];
             } else {
                 if (this.repeat && this.list.length > 0) {
                     //REPEAT QUEUE
                     this.queueIndex = 0;
                     this.queue = Array.from(Array(this.list.length).keys());
-                    console.log("repeat");
+                    console.log("Queue: repeat");
                     return this.list[this.queue[this.queueIndex]];
                 } else {
                     //EMPTY QUEUE
-                    console.log("drop");
+                    console.log("Queue: drop");
                     this.queueIndex = -1;
                     this.repeatTrack = false;
                     this.list = new Array();
@@ -70,6 +72,8 @@ export class Queue {
 
     async shuffle() {
         return this.mutex.runExclusive(() => {
+            console.log(`shuffling: ${this.list.length} tracks`);
+            this.queue = Array.from(Array(this.list.length).keys());
             let currentIndex = this.queue.length,  randomIndex;
       
             // While there remain elements to shuffle...
@@ -86,14 +90,14 @@ export class Queue {
             }
             
             this.queueIndex = -1;
-            console.log("shuffle");
+            console.log("queue shuffled");
         });
     }
 
     async getCurrentLink() {
         return this.mutex.runExclusive(() => {
-            if (this.queue.length > 0) {
-                return this.list[this.queueIndex];
+            if (this.queue.length > this.queueIndex && this.list.length > this.queue[this.queueIndex]) {
+                return this.list[this.queue[this.queueIndex]];
             }
 
             return null;
@@ -102,11 +106,22 @@ export class Queue {
 
     async getNextLink() {
         return this.mutex.runExclusive(() => {
-            if (this.queue.length > 1) {
-                return this.list[this.queueIndex + 1];
+            if (this.queue.length > this.queueIndex + 1 && this.list.length > this.queue[this.queueIndex + 1]) {
+                return this.list[this.queue[this.queueIndex + 1]];
             }
 
             return null;
+        });
+    }
+
+    async getQueue() {
+        return this.mutex.runExclusive(() => {
+            let q = new Array();
+            for (var i = this.queueIndex >= 0 ? this.queueIndex : 0; i < this.queue.length; i++) {
+                q.push(this.list[i]);
+            }
+
+            return q;
         });
     }
 

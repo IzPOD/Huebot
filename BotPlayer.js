@@ -3,35 +3,34 @@ import { joinVoiceChannel, VoiceConnectionStatus, entersState, createAudioPlayer
 
 import ytdl from 'ytdl-core';
 import { Queue } from './Queue.js';
-import { updateDelay, name, shiftAmount } from './index.js'
+import { updateDelay } from './index.js'
 
-const maxChars = 25;
+const maxChars = 22;
 const spacer = new Array(Math.round(60)).join("-");
-const stringsSpacer = "         ###         ";
-const help = `use /q <ytube link> to add songs`;
 
 export class BotPlayer {
     id = null;
-    info = null;
+    info = `use /q <ytube link> to add songs`;
     infoTime = 0;
     infoGoing = false;
 
     track = null;
     nextTrack = null;
 
-    message;
-    embed;
+    message;    //probably need to remove that and find by id in update
+    embed;      //and then this goes to
     active = false;
     index = 0;
 
-    stream;
-    interaction;
-    voiceConnection;
+    stream;  // don't need this since audioplayer destroys resource?
+    connection;
     voiceChannelId;
     audioPlayer;
     res;
     volume = 0.5;
     lock = false;
+
+    rewinded = 0;
 
     queue = new Queue();
 
@@ -42,7 +41,7 @@ export class BotPlayer {
     }
 
     addTrack(link) {
-        console.log("added: " + link);
+        console.log(`added: ${link}`);
         this.queue.addTrack(link);
     }
 
@@ -73,57 +72,62 @@ export class BotPlayer {
     }
 
     getText() {
-        if (this.index < 0) {
-            this.index = 0;
-        }
+        // if (this.index < 0) {
+        //     this.index = 0;
+        // }
 
-        //THIS IS CANCER BUT...
-        if (this.infoTime == -1) {
-            this.infoTime = 0;
-            this.index = 0;
-        }
+        // //THIS IS CANCER BUT...
+        // if (this.infoTime == -1) {
+        //     this.infoTime = 0;
+        //     this.index = 0;
+        // }
 
         let str = "  ";
-        if (this.infoTime <= 0) {
-            str += name;
+        // if (this.infoTime <= 0) {
+        //     str += name;
 
-            if (this.track != null) {
-                str += `${stringsSpacer}Now playing:  ${this.track}`;
-            }
+        //     if (this.track != null) {
+        //         str += `${stringsSpacer}Now playing:  ${this.track}`;
+        //     }
 
-            if (this.nextTrack != null) {
-                str += `${stringsSpacer}Next: ${this.nextTrack}`;
-            }
+        //     if (this.nextTrack != null) {
+        //         str += `${stringsSpacer}Next: ${this.nextTrack}`;
+        //     }
 
-            str += `${stringsSpacer}${help}${stringsSpacer}`;
-        } else {
+        //     str += `${stringsSpacer}${help}${stringsSpacer}`;
+        // } else {
+        //     str += this.info;
+        //     this.infoTime -= updateDelay;
+        //     if (this.infoTime <= 0) {
+        //         this.infoTime = -1;
+        //     }
+        // }
+
+        if (this.info != null) {
             str += this.info;
-            this.infoTime -= updateDelay;
-            if (this.infoTime <= 0) {
-                this.infoTime = -1;
-            }
         }
 
-        if (str.length < maxChars) {
-            let toAdd = (maxChars - str.length) / 2;
-            let round = Math.round(toAdd);
+        // CANT EDIT MESSAGE FAST TO SMOTH ANIMATION DUE TO DISCORD API RESTRICTIONS
+        //if (str.length < maxChars) { 
+        //    let toAdd = (maxChars - str.length) / 2;
+        //    let round = Math.round(toAdd);
+        //
+        //    str = new Array(round).join(" ") + str + " "
+        //        + new Array(round).join(" ");
+        //
+        //    if (round < toAdd)
+        //        str += " ";
+        //}
 
-            str = new Array(round).join(" ") + str + " "
-                + new Array(round).join(" ");
+        //if (this.index >= str.length) {
+        //    this.index = 0;
+        //}
 
-            if (round < toAdd)
-                str += " ";
-        }
+        //str = str.slice(this.index) + str.slice(0, this.index);
+        //this.index += shiftAmount;
 
-        if (this.index >= str.length) {
-            this.index = 0;
-        }
-
-        str = str.slice(this.index) + str.slice(0, this.index);
-        this.index += shiftAmount;
-
-        if (str.length > maxChars) {
-            str = str.slice(0, maxChars);
+        if (str.length > maxChars + 3) {
+            str = str.slice(0, maxChars) + "...";
         }
 
         str = "_" + str + "_";
@@ -148,7 +152,7 @@ export class BotPlayer {
         let sound = Math.min(bars, Math.max(0, (Math.round(this.volume * bars))));
         
         let str = 
-            `[|\\ ${new Array(bars + 1 - sound).join("     ")}${new Array(sound + 1).join("🙽")}\\ |                         `;
+            `[| ${new Array(bars + 1 - sound).join("\\ ")}${new Array(sound + 1).join("🙽")} |                         `;
         
         let status = this.audioPlayer.state.status;
 
@@ -169,17 +173,19 @@ export class BotPlayer {
     }
 
     async play() {
-        this.setInfo("FETCHING INFO...");
+        //this.setInfo("FETCHING INFO...");
         if(this.audioPlayer.state.status !== AudioPlayerStatus.Idle) {
             this.audioPlayer.stop();
         }
-        this.track = null;
-        this.nextTrack = null;
+        this.info = "FETCHING INFO...";
+        //this.track = null;
+        //this.nextTrack = null;
         let link = await this.queue.next();
 
         if(link == null || link == undefined) {
             console.log("queue is empty, stopping");
-            this.setInfo("QUEUE IS EMPTY");
+            //this.setInfo("QUEUE IS EMPTY");
+            this.info = "QUEUE IS EMPTY";
             return;
         }
 
@@ -189,11 +195,14 @@ export class BotPlayer {
             return;
         }
 
-        this.track = info.videoDetails.title;
+        //this.track = info.videoDetails.title;
+        this.info = `${info.videoDetails.title}`;
         console.log("playing: " + info.videoDetails.title);
 
+        console.log(info.videoDetails.isLive);
+
         //TODO CATCH POSSIBLE ERROR
-        this.stream = ytdl(link, {
+        this.stream = ytdl(link, info.videoDetails.isLive ? {quality: [91,92,93,94,95], liveBuffer: 4900} : {
             filter: "audioonly",
             highWaterMark: 1 << 25,
             opusEncoded: true,
@@ -223,35 +232,34 @@ export class BotPlayer {
     async connect(voiceChannel) {
         this.createPlayer();
 
-        let connection = joinVoiceChannel({
+        if (this.connection != null && this.connection != null) {
+            if(voiceChannel.id != this.voiceChannelId) {
+                this.connection.destroy();
+                this.connection = null;
+                this.voiceChannelId = null;
+                console.log("disconnected from an old channel");
+            } else {
+                console.log("already connected");
+                return true; // aleready connected
+            }
+        }
+
+        this.connection = joinVoiceChannel({
             channelId: voiceChannel.id,
             guildId: voiceChannel.guild.id,
             adapterCreator: voiceChannel.guild.voiceAdapterCreator,
         });
 
-        //AVOID THIS SOMEHOW
-        connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
+        this.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
             console.log("disconnection");
             this.audioPlayer.pause();
-            try {
-                await Promise.race([
-                    entersState(connection, VoiceConnectionStatus.Signalling, 5000),
-                    entersState(connection, VoiceConnectionStatus.Connecting, 5000),
-                ]);
-                // Seems to be reconnecting to a new channel - ignore disconnect
-                this.audioPlayer.unpause();
-                console.log("reconnected");
-
-            } catch (error) {
-                console.log("real disconnection");
-                // Seems to be a real disconnect which SHOULDN'T be recovered from
-                connection.destroy();
-                this.voiceChannelId = null;
-            }
+            this.connection.destroy();
+            this.connection = null;
+            this.voiceChannelId = null;
         });
 
         try {
-            await entersState(connection, VoiceConnectionStatus.Ready, 1500);
+            await entersState(this.connection, VoiceConnectionStatus.Ready, 1500);
             this.voiceChannelId = voiceChannel.id;
             console.log("connected");
         } catch (error) {
@@ -259,9 +267,27 @@ export class BotPlayer {
             return false;
         }
 
-        this.dispatcher = connection.subscribe(this.audioPlayer);
+        this.connection.subscribe(this.audioPlayer);
 
         return true;
+    }
+
+    async rewind() {
+        if(this.rewinded > 0) {
+            await this.queue.rewind(2);
+            console.log("rewinding");
+        } else {
+            await this.queue.rewind(1);
+            console.log("replaying");
+        }
+
+        if (this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
+            this.play();
+        } else if (this.audioPlayer.state.status === AudioPlayerStatus.Playing
+            || this.audioPlayer.state.status === AudioPlayerStatus.Paused) {
+            this.rewinded = 5000;
+            this.audioPlayer.stop();
+        }
     }
 
     async updatePlayer() {
@@ -275,25 +301,45 @@ export class BotPlayer {
         while(this.active)
         {
             await sleep(updateDelay);
-                if (!this.active) {
-                    console.log("exited update loop");
-                    return;
+            if (!this.active) {
+                console.log("exited update loop");
+                return;
+            }
+
+            if (this.rewinded >= 0) {
+                this.rewinded -= updateDelay; // for tracking "repeat this\previous"
+            }
+
+            let que = this.getQueueLen();
+            let text = this.getText();
+            let stats = this.getStats();
+            this.embed.setTitle( `PGN\n${que}        #>    ${text}\n${stats}\n${spacer}`);
+    
+            if(this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
+                this.embed.setColor('#ff0000');
+            } else if (this.audioPlayer.state.status === AudioPlayerStatus.Playing) {
+                this.embed.setColor('#00ff00');
+            } else if (this.audioPlayer.state.status === AudioPlayerStatus.Paused) {
+                this.embed.setColor('#999900');
+            }
+            
+            await this.message.edit({embeds: [this.embed]}).catch((error) => {
+                console.log(error); //probably the message was deleted by admin
+                this.active = false;
+                this.id = null;
+                        
+                if(this.connection != null) {
+                    this.connection.destroy();
+                    this.connection = null;
                 }
 
-                let que = this.getQueueLen();
-                let text = this.getText();
-                let stats = this.getStats();
-                this.embed.setTitle( `PGN\n${que}        #>    ${text}\n${stats}\n${spacer}`);
-    
-                if(this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-                    this.embed.setColor('#ff0000');
-                } else if (this.audioPlayer.state.status === AudioPlayerStatus.Playing) {
-                    this.embed.setColor('#00ff00');
-                } else if (this.audioPlayer.state.status === AudioPlayerStatus.Paused) {
-                    this.embed.setColor('#999900');
+                if(this.audioPlayer != null) {
+                    this.audioPlayer.stop();
+                    this.audioPlayer = null
                 }
-            
-                await this.message.edit({embeds: [this.embed]}).catch(error => console.log(error));
+
+                this.queue.unload();
+            });
         }
     }
 }
