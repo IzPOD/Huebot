@@ -14,7 +14,7 @@ const players = new Map();
 export const updateDelay = 2000;
 export const data = new SlashCommandBuilder()
     .setName('player')
-    .setDescription('mp3 плеер')
+    .setDescription('mp3 player')
     .addStringOption(option => option.setName('link')
         .setDescription('Youtube link')
         .setRequired(false));
@@ -37,7 +37,7 @@ export async function execute(interaction) {
             
             player.active = false;
         } else {
-            await interaction.reply({ content: `<@${interaction.user.id}> плеер занят в другом канале`, ephemeral: true, fetchReply: true });
+            await interaction.reply({ content: `<@${interaction.user.id}> player is working in the another channel`, ephemeral: true, fetchReply: true });
             return;
         }
     } else {
@@ -315,7 +315,7 @@ export async function onLink(interaction) {
 
     if (trackLink == null || trackLink == undefined) {
         console.log("no link");
-        await interaction.editReply({ content: `<@${interaction.user.id}> плеер ещё не запущен!`, ephemeral: true, fetchReply: true });
+        await interaction.editReply({ content: `<@${interaction.user.id}> player does not started yet!`, ephemeral: true, fetchReply: true });
         unlock(interaction);
         return;
     }
@@ -340,7 +340,7 @@ function chceckPerm(interaction) {
 
     if(interaction.member.voice.channel != player.voiceChannelId
         && (player.audioPlayer != null && player.audioPlayer.state.status === AudioPlayerStatus.Playing)) {
-        interaction.reply({ content: `<@${interaction.user.id}> не мешай!`, ephemeral: true, fetchReply: true});
+        interaction.reply({ content: `<@${interaction.user.id}> don't interrupt!`, ephemeral: true, fetchReply: true});
         return false;
     }
 
@@ -353,7 +353,7 @@ function roughCheck(interaction) {
     if (player == null || player == undefined || player.id != interaction.message.id) {
         console.log("outdated player");
         interaction.message.delete();
-        interaction.reply({ content: `<@${interaction.user.id}> удален старый плеер!`, ephemeral: true, fetchReply: true});
+        interaction.reply({ content: `<@${interaction.user.id}> outdated player!`, ephemeral: true, fetchReply: true});
         return false;
     }
 
@@ -384,7 +384,7 @@ function attachPlayer(interaction) {
         return true;
     } else if (player.id != interaction.message.id) {
         interaction.message.delete().catch(error => console.log(error)); // TODO: this is async clicking multiple time throws error;
-        interaction.reply({ content: `<@${interaction.user.id}> удален старый плеер!`, ephemeral: true, fetchReply: true});
+        interaction.reply({ content: `<@${interaction.user.id}> outdated player!`, ephemeral: true, fetchReply: true});
         console.log("outdated player");
         return false;
     }
@@ -417,7 +417,7 @@ function checkInChannel(interaction) {
 
     if (voiceChannel == null || voiceChannel == undefined) {
         console.log("not in channel");
-        interaction.reply({ content: `<@${interaction.user.id}> кажется ты не в канале!`, ephemeral: true, fetchReply: true});
+        interaction.reply({ content: `<@${interaction.user.id}> seems like you are not in the channel!`, ephemeral: true, fetchReply: true});
         return false;
     }
 
@@ -430,7 +430,7 @@ async function connect(interaction, voiceChannel) {
 
     let result = await player.connect(voiceChannel);
     if (!result) {
-        interaction.reply({ content: `<@${interaction.user.id}> не могу подключиться!`, ephemeral: true, fetchReply: true });
+        interaction.reply({ content: `<@${interaction.user.id}> can't connect to your channel!`, ephemeral: true, fetchReply: true });
     }
 
     return result;
@@ -487,7 +487,7 @@ function lock(interaction) {
         console.log("locked player does not exist");
     }
 
-    interaction.reply({ content: `<@${interaction.user.id}> подожди секунду!`, ephemeral: true, fetchReply: true}); // "please wait" reply maybe?
+    interaction.reply({ content: `<@${interaction.user.id}> wait a second!`, ephemeral: true, fetchReply: true}); // "please wait" reply maybe?
     console.log("player already locked");
     return false;
 }

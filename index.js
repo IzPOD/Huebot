@@ -12,8 +12,6 @@ config();
 
 const token = process.env.TOKEN;
 export const updateDelay = parseInt(process.env.DELAY, 10);
-export const shiftAmount = parseInt(process.env.SHIFT, 10);
-export const name = process.env.NAME;
 
 const bot = new Client(
     {
@@ -89,14 +87,6 @@ bot.on('interactionCreate', async (interaction) => {
         } else if (interaction.customId == 'unload') {
             onUnload(interaction);
         }
-    }
-});
-
-bot.on('messageCreate', (msg) => {
-    var args = msg.content.split(' ');
-
-    if (args[0].startsWith('!')) {
-         msg.reply("бот использует новый DISCORD API V12-13 используйте '/' комманды")
     }
 });
     

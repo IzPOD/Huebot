@@ -4,8 +4,8 @@ export class Queue {
     mutex = new Mutex();
 
     list = Array.from([
-        "https://www.youtube.com/watch?v=cpeuGKT8r2Q"
-    ]);
+        "https://www.youtube.com/watch?v=cpeuGKT8r2Q"  
+    ]); //Cool tapeplayer sound
     queue =  Array.from(Array(this.list.length).keys());
     queueIndex = -1;
 

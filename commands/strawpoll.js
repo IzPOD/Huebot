@@ -7,11 +7,11 @@ var messages = new Map();
 
 export const data = new SlashCommandBuilder()
     .setName('si')
-    .setDescription('выборы - выборы');
+    .setDescription('voice-channel strawpoll');
 
 export async function execute(interaction) {
     if (!checkInChannel(interaction)) {
-        await interaction.reply({ content: 'Зайди в канал!' });
+        await interaction.reply({ content: 'You should be in the channel!' });
         return;
     }
 
@@ -22,18 +22,18 @@ export async function execute(interaction) {
     let closeButton = new MessageButton();
 
     pollButton.setCustomId('poll')
-        .setLabel('Выбрать')
+        .setLabel('Select')
         .setStyle('PRIMARY');
 
     resetButton.setCustomId('restart')
-        .setLabel('Рестарт')
+        .setLabel('Restart')
         .setStyle('PRIMARY');
 
     closeButton.setCustomId('closePoll')
         .setStyle('DANGER')
         .setEmoji('✖️');
 
-    let participants = "Участники: ";
+    let participants = "Participants: ";
     let users = new Array();
 
     voiceChannel.members.forEach((value) => {
@@ -53,7 +53,7 @@ export async function execute(interaction) {
     guildPolls.set(voiceChannel.id, users);
 
     row.addComponents(pollButton, resetButton, closeButton);
-    await interaction.reply({ content: `Голосование в канале ${voiceChannel.name}\n${participants}`, components: [row], fetchReply: true })
+    await interaction.reply({ content: `Strawpoll in the channel ${voiceChannel.name}\n${participants}`, components: [row], fetchReply: true })
         .then((message) => messages.set(message.id, interaction.user.id));
 }
 export async function poll(interaction) {
@@ -70,7 +70,7 @@ export async function poll(interaction) {
         return;
     }
 
-    let participants = "Участники: ";
+    let participants = "Participants: ";
     let users = guildPolls.get(voiceChannel.id);
 
     if (users == null || users == undefined) {
@@ -101,7 +101,7 @@ export async function poll(interaction) {
     });
 
     await interaction.update({
-        content: `Голосование в канале ${voiceChannel.name}\nПобедитель: ${winner.username}#${winner.discriminator}\n${participants}`
+        content: `Strawpoll in the channel ${voiceChannel.name}\nWinner: ${winner.username}#${winner.discriminator}\n${participants}`
     });
 }
 export async function restart(interaction) {
@@ -119,7 +119,7 @@ export async function restart(interaction) {
     }
 
     let users = new Array();
-    let participants = "Участники: ";
+    let participants = "Participants: ";
 
     voiceChannel.members.forEach((value) => {
         participants += ` ${value.user.username}#${value.user.discriminator} `;
@@ -127,7 +127,7 @@ export async function restart(interaction) {
     });
 
     await interaction.update({
-        content: `Голосование в канале ${voiceChannel.name}\n${participants}`
+        content: `Strawpoll in the channel ${voiceChannel.name}\n${participants}`
     });
 
     guildPolls.set(voiceChannel.id, users);
@@ -156,7 +156,7 @@ function checkPerms(interaction, respond = true) {
 
     if (permission == null || permission == undefined) {
         if (respond) {
-            interaction.channel.send(`<@${interaction.user.id}> голосование просрочено!`)
+            interaction.channel.send(`<@${interaction.user.id}> old poll!`)
                 .then(message => {setTimeout(() => message.delete(), 5000)});
         }
 
@@ -165,7 +165,7 @@ function checkPerms(interaction, respond = true) {
     }
 
     if (permission != interaction.user.id && !interaction.member.permissions.has('ADMINISTRATOR')) {
-        interaction.channel.send(`<@${interaction.user.id}> лапы прочь!`)
+        interaction.channel.send(`<@${interaction.user.id}> don't interrupt!`)
             .then(message => {setTimeout(() => message.delete(), 5000)});
         return false;
     }
@@ -177,7 +177,7 @@ function checkInChannel(interaction) {
     voiceChannel = interaction.member.voice.channel;
 
     if (voiceChannel == null || voiceChannel == undefined) {
-        interaction.channel.send(`<@${interaction.user.id}> кажется ты не в канале!`)
+        interaction.channel.send(`<@${interaction.user.id}> seems like you are not in the channel!`)
             .then(message => {setTimeout(() => message.delete(), 5000)});
         return false;
     }
