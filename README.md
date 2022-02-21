@@ -4,7 +4,7 @@ Discord bot ***(for testing or private use purposes)*** based on Discord js API 
 ![image](https://user-images.githubusercontent.com/36813380/154811158-3ae16250-252a-492c-9800-3b76f59c3f73.png);
 
 ## Bot features:
-- Discord commands (/player (link: optional), /q (link: optional), ~~(/poll oh boy, I should rewrite this)~~)
+- Discord commands (/player (link: optional), /q (link: optional), /poll (subject: optional))
 - Visualized player with embed-updatable-message (~~Discord API rate limits ruining the fun~~) and control buttons 
 - Playing audio from YouTube videos\streams
 - Queuing tracks from single\playlist tracks
