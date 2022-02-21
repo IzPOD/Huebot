@@ -131,7 +131,7 @@ export async function execute(interaction) {
             console.log("new player created");
 
             let link = interaction.options.getString("link");
-            if (link != null || link != undefined) {
+            if (link != null && link != undefined) {
                 onAddTrack(interaction, link, false);
             }
     });

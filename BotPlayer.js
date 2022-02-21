@@ -199,7 +199,9 @@ export class BotPlayer {
         this.info = `${info.videoDetails.title}`;
         console.log("playing: " + info.videoDetails.title);
 
-        console.log(info.videoDetails.isLive);
+        if (info.videoDetails.isLive == true) {
+            console.log("playing stream!");
+        }
 
         //TODO CATCH POSSIBLE ERROR
         this.stream = ytdl(link, info.videoDetails.isLive ? {quality: [91,92,93,94,95], liveBuffer: 4900} : {

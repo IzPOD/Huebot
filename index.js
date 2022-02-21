@@ -4,7 +4,7 @@ import { config } from 'dotenv';
 import { Client } from 'discord.js';
 import { Intents, Collection } from 'discord.js';
 import { readdirSync } from 'fs';
-import { poll, restart, close } from './commands/strawpoll.js';
+import { onPoll, onRestart, onClosePoll } from './commands/strawpoll.js';
 import { onClose, onPlay, onSkip, onPrev, onVolume, onLink, onShuffle, onRepeatQ, onRepeat, onUnload } from './commands/player.js';
 
 process.setMaxListeners(100);
@@ -13,7 +13,7 @@ config();
 const token = process.env.TOKEN;
 export const updateDelay = parseInt(process.env.DELAY, 10);
 
-const bot = new Client(
+export const bot = new Client(
     {
         intents: [
             Intents.FLAGS.GUILDS, 
@@ -59,11 +59,11 @@ bot.on('interactionCreate', async (interaction) => {
 	    }
     } else if (interaction.isButton()) {
         if (interaction.customId == 'poll') {
-            poll(interaction);
+            onPoll(interaction);
         } else if (interaction.customId == 'restart') {
-            restart(interaction);
+            onRestart(interaction);
         } else if (interaction.customId == 'closePoll') {
-            close(interaction);
+            onClosePoll(interaction);
         } else if (interaction.customId == 'closePlayer') {
             onClose(interaction);
         } else if (interaction.customId == 'play') {

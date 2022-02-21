@@ -1,21 +1,25 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { MessageActionRow, MessageButton } from 'discord.js';
+import { Poll } from '../Poll.js';
 
 var activePolls = new Map();
 
-var messages = new Map();
-
 export const data = new SlashCommandBuilder()
-    .setName('si')
-    .setDescription('voice-channel strawpoll');
+    .setName('poll')
+    .setDescription('voice-channel strawpoll')
+    .addStringOption(option => option.setName('subject')
+        .setDescription('Poll subject')
+        .setRequired(false));
 
 export async function execute(interaction) {
     if (!checkInChannel(interaction)) {
-        await interaction.reply({ content: 'You should be in the channel!' });
         return;
     }
 
+    let subject = interaction.options.getString("subject");
+
     let voiceChannel = interaction.member.voice.channel;
+    let poll = createPoll(interaction, subject);
     let row = new MessageActionRow();
     let pollButton = new MessageButton();
     let resetButton = new MessageButton();
@@ -32,141 +36,130 @@ export async function execute(interaction) {
     closeButton.setCustomId('closePoll')
         .setStyle('DANGER')
         .setEmoji('✖️');
-
-    let participants = "Participants: ";
-    let users = new Array();
-
-    voiceChannel.members.forEach((value) => {
-        participants += ` ${value.user.username}#${value.user.discriminator} `;
-        users.push(value.user);
-    });
-
-    let guildPolls = null;
-
-    if (activePolls.has(interaction.guild.id)) {
-        guildPolls = activePolls.get(interaction.guild.id);
-    } else {
-        guildPolls = new Map();
-        activePolls.set(interaction.guild.id, guildPolls);
-    }
-
-    guildPolls.set(voiceChannel.id, users);
-
+        
     row.addComponents(pollButton, resetButton, closeButton);
-    await interaction.reply({ content: `Strawpoll in the channel ${voiceChannel.name}\n${participants}`, components: [row], fetchReply: true })
-        .then((message) => messages.set(message.id, interaction.user.id));
-}
-export async function poll(interaction) {
-    if (!checkPerms(interaction) || !checkInChannel(interaction)) {
-        return;
-    }
 
+    await interaction.reply({ content: `Strawpoll in the channel ${voiceChannel.name}: ${poll.getText()}`, components: [row], fetchReply: true})
+        .then(message => poll.message = message);
+}
+
+export async function onPoll(interaction) {
     let voiceChannel = interaction.member.voice.channel;
-    let guildPolls = activePolls.get(interaction.guild.id);
+    let poll = attachPoll(interaction);
 
-    if (guildPolls == null || guildPolls == undefined) {
-        guildPolls = new Map();
-        activePolls.set(interaction.guild.id, guildPolls);
+    if (poll == null)
         return;
-    }
 
-    let participants = "Participants: ";
-    let users = guildPolls.get(voiceChannel.id);
+    poll.pick();
 
-    if (users == null || users == undefined) {
-        users = new Array();
-
-        voiceChannel.members.forEach((value) => {
-            users.push(value.user);
-        });
-    }
-
-    let winnerIndex = Math.floor(Math.random() * users.length);
-    let winner = users[winnerIndex];
-
-    users.splice(winnerIndex, 1);
-
-    if (users.length <= 0) {
-        users = new Array();
-
-        voiceChannel.members.forEach((value) => {
-            users.push(value.user);
-        });
-    }
-
-    guildPolls.set(voiceChannel.id, users);
-
-    users.forEach((user) => {
-        participants += ` ${user.username}#${user.discriminator} `;
-    });
-
-    await interaction.update({
-        content: `Strawpoll in the channel ${voiceChannel.name}\nWinner: ${winner.username}#${winner.discriminator}\n${participants}`
-    });
+    await interaction.update({content: `Strawpoll in the channel ${voiceChannel.name}: ${poll.getText()}`});
+    console.log("poll picked");
 }
-export async function restart(interaction) {
-    if (!checkPerms(interaction) || !checkInChannel(interaction)) {
-        return;
-    }
 
+export async function onRestart(interaction) {
     let voiceChannel = interaction.member.voice.channel;
-    let guildPolls = activePolls.get(interaction.guild.id);
+    let poll = attachPoll(interaction);
 
-    if (guildPolls == null || guildPolls == undefined) {
-        guildPolls = new Map();
-        activePolls.set(interaction.guild.id, guildPolls);
+    if (poll == null)
         return;
-    }
 
-    let users = new Array();
-    let participants = "Participants: ";
+    poll.reset(voiceChannel);
 
-    voiceChannel.members.forEach((value) => {
-        participants += ` ${value.user.username}#${value.user.discriminator} `;
-        users.push(value.user);
-    });
-
-    await interaction.update({
-        content: `Strawpoll in the channel ${voiceChannel.name}\n${participants}`
-    });
-
-    guildPolls.set(voiceChannel.id, users);
+    await interaction.update({content: `Strawpoll in the channel ${voiceChannel.name}: ${poll.getText()}`});
+    console.log("poll restarted");
 }
-export async function close(interaction) {
+
+export async function onClosePoll(interaction) {
     if (!checkPerms(interaction, false)) {
         return;
     }
 
     deletePoll(interaction);
+    await interaction.reply({content: `<@${interaction.user.id}> poll has been closed!`, ephemeral: true});
+    
+    console.log("poll closed");
+}
+
+function createPoll(interaction, subject = null) {
+    let voiceChannel = interaction.member.voice.channel;
+    let poll = new Poll(interaction.user, voiceChannel, subject);
+
+    let guildPolls = null;
+
+    if (activePolls.has(interaction.guild.id)) {
+        guildPolls = activePolls.get(interaction.guild.id);
+        let prevPoll = guildPolls.get(interaction.user.id);
+
+        if (prevPoll != null && prevPoll != undefined) {
+            prevPoll.message.delete();
+        }
+    } else {
+        guildPolls = new Map();
+        activePolls.set(interaction.guild.id, guildPolls);
+    }
+
+    guildPolls.set(interaction.user.id, poll);
+
+    return poll;
 }
 
 async function deletePoll(interaction) {
     try {
-        messages.delete(interaction.message.id);
-        await interaction.deferUpdate();
-        await interaction.deleteReply();
+        let guildPolls = activePolls.get(interaction.guild.id);
+        if(guildPolls != null && guildPolls != undefined) {
+            let poll = guildPolls.get(interaction.user.id);
+            if(poll != null && poll != undefined) {
+                guildPolls.delete(interaction.user.id);
+            }
+        }
+
+        await interaction.message.delete();
+        console.log("poll deleted");
     } catch (e) {
         console.log(e);
-        interaction.channel.send(`<@${interaction.user.id}> + ${e}`);
+        interaction.channel.send(`<@${interaction.user.id}> ${e}`);
     }
 }
 
-function checkPerms(interaction, respond = true) {
-    let permission = messages.get(interaction.message.id);
-
-    if (permission == null || permission == undefined) {
-        if (respond) {
-            interaction.channel.send(`<@${interaction.user.id}> old poll!`)
-                .then(message => {setTimeout(() => message.delete(), 5000)});
-        }
-
-        deletePoll(interaction);
-        return false;
+function attachPoll(interaction) {
+    if (!checkInChannel(interaction) || !checkPerms(interaction)) {
+        return null;
     }
 
-    if (permission != interaction.user.id && !interaction.member.permissions.has('ADMINISTRATOR')) {
-        interaction.channel.send(`<@${interaction.user.id}> don't interrupt!`)
-            .then(message => {setTimeout(() => message.delete(), 5000)});
+    let guildPolls = activePolls.get(interaction.guild.id);
+    let poll;
+
+    if (guildPolls == null || guildPolls == undefined
+        || !guildPolls.has(interaction.user.id)) {
+        poll = createPoll(interaction);
+        return poll;
+    } 
+
+    return guildPolls.get(interaction.user.id);
+}
+
+function checkPerms(interaction) {
+    let guildPolls = activePolls.get(interaction.guild.id);
+    let poll;
+    if (guildPolls == null || guildPolls == undefined) {
+        console.log("outdated poll");
+        interaction.reply({content: `<@${interaction.user.id}> outdated poll!`, ephemeral: true});
+        deletePoll(interaction);
+        return false;
+    } else {
+        let poll = guildPolls.get(interaction.user.id);
+        if (poll == null || poll == undefined || interaction.message.id != poll.message.id) {
+            console.log("outdated poll");
+            interaction.reply({content: `<@${interaction.user.id}> outdated poll!`, ephemeral: true});
+            deletePoll(interaction);
+            return false;
+        } 
+    }
+
+    if(interaction.member.permissions.has('ADMINISTRATOR')) {
+        return true;
+    } else if (poll.initiator.id != interaction.user.id) {
+        interaction.reply({content: `<@${interaction.user.id}> don't interrupt please!`, ephemeral: true});
         return false;
     }
 
@@ -174,11 +167,10 @@ function checkPerms(interaction, respond = true) {
 }
 
 function checkInChannel(interaction) {
-    voiceChannel = interaction.member.voice.channel;
+    let voiceChannel = interaction.member.voice.channel;
 
     if (voiceChannel == null || voiceChannel == undefined) {
-        interaction.channel.send(`<@${interaction.user.id}> seems like you are not in the channel!`)
-            .then(message => {setTimeout(() => message.delete(), 5000)});
+        interaction.reply({content: `<@${interaction.user.id}> seems like you are not in the channel!`, ephemeral: true})
         return false;
     }
 
